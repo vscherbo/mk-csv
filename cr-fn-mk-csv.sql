@@ -146,7 +146,7 @@ BEGIN
   END IF; -- device
 
   UPDATE devmod.bx_export_log SET exp_csv_status = exp.exp_csv_status WHERE exp_id = aexp_id;
-    -- put an Article about start of export
+    -- put an Article about finish of export
   WITH inserted AS (
         INSERT INTO "Статьи"("Содержание", "ДатаСтатьи", "Автор") 
         VALUES ('Завершён экспорт модели ' || res.out_model_name || ' на сайт ' || site || ' (exp_id='||aexp_id|| ')', clock_timestamp(), 0)
