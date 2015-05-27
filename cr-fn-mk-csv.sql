@@ -1,6 +1,6 @@
--- Function: devmod.fn_mk_csv()
+-- Function: devmod.fn_mk_csv(integer)
 
--- DROP FUNCTION devmod.fn_mk_csv();
+-- DROP FUNCTION devmod.fn_mk_csv(integer);
 
 CREATE OR REPLACE FUNCTION devmod.fn_mk_csv(IN aexp_id INTEGER)
   RETURNS VOID AS
@@ -159,5 +159,5 @@ BEGIN
 END$BODY$
   LANGUAGE plpgsql VOLATILE
   COST 100;
-ALTER FUNCTION devmod.fntr_mk_csv()
+ALTER FUNCTION devmod.fn_mk_csv(integer)
   OWNER TO arc_energo;
