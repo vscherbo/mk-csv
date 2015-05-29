@@ -14,7 +14,7 @@ $BODY$DECLARE
   mods_section_id INTEGER;
   price_section_id INTEGER;
   dev_xml_id INTEGER;
-  strParams VARCHAR;
+  strFinInfoUpdateArgs VARCHAR;
   article_id INTEGER;
   device_mode bit(3) = B'001';
   modificators_mode bit(3) = B'010';
@@ -34,7 +34,7 @@ BEGIN
     
     -- for devmod.ie_param
     SELECT ie_xml_id INTO loc_xml_id FROM devmod.device d
-    WHERE d.dev_id = exp.dev_id;
+    WHERE d.dev_id = exp.dev_id AND d.version_num = exp.version_num;
     IF loc_xml_id IS NULL THEN flag_new := TRUE; ELSE flag_new := FALSE; END IF;
     RAISE NOTICE 'flag_new=%', flag_new;
 
@@ -88,6 +88,7 @@ BEGIN
 
     -- только для новых товаров
     IF flag_new THEN
+        -- fin-info-update будет вызвана в ветке device, т.к. для новых приборов цены должны экспортироваться вместе с прибором
         cmd := 'ssh uploader@' || site || ' php -f ./get-prices-ID.php '|| res.out_model_name;
         str_res := public.shell(cmd);
         BEGIN
@@ -96,6 +97,15 @@ BEGIN
                 THEN RAISE 'Prices cmd=% result=[%]', cmd, str_res; 
         END;
         RAISE NOTICE 'price_section_id=%', price_section_id;
+    ELSE
+        -- скопировано из ветки device
+        cmd := 'ssh uploader@' || site || ' /usr/bin/php -f ./fin-info-update.php '|| res.out_model_name ;
+        str_res := public.shell(cmd);
+        BEGIN
+            dev_xml_id := cast(str_res as integer);
+            exception WHEN OTHERS 
+                THEN RAISE 'fin-info-update cmd=%, result=[%]', cmd, str_res; 
+        END;
     END IF; -- flag_new
     
     exp.exp_csv_status := COALESCE( (exp.exp_csv_status::BIT(3) | price_mode)::INTEGER, price_mode::INTEGER);
@@ -117,18 +127,18 @@ BEGIN
     str_res := public.shell(cmd);
     if (str_res != '') then RAISE 'Device cmd=%, result=[%]', cmd, str_res; END IF;
 
-    SELECT ' '|| bx_fld_value INTO strParams FROM devmod.bx_export_csv WHERE exp_id = aexp_id AND bx_fld_name = 'bx_groups' ;
-    cmd := 'ssh uploader@' || site || ' /usr/bin/php -f ./set-dev-groups.php '|| res.out_model_name || strParams;
+    SELECT ' '|| bx_fld_value INTO strFinInfoUpdateArgs FROM devmod.bx_export_csv WHERE exp_id = aexp_id AND bx_fld_name = 'bx_groups' ;
+    cmd := 'ssh uploader@' || site || ' /usr/bin/php -f ./set-dev-groups.php '|| res.out_model_name || strFinInfoUpdateArgs;
     str_res := public.shell(cmd);
     if (str_res != '') then RAISE 'Device cmd=%, result=[%]', cmd, str_res; END IF;
 
-    -- strParams := ' ';
-    --IF (mods_section_id IS NOT NULL) THEN strParams := strParams || ' ' || mods_section_id::VARCHAR; END IF;
-    --IF (price_section_id IS NOT NULL) THEN strParams := strParams || ' ' || price_section_id::VARCHAR; END IF;
+    -- strFinInfoUpdateArgs := ' ';
+    --IF (mods_section_id IS NOT NULL) THEN strFinInfoUpdateArgs := strFinInfoUpdateArgs || ' ' || mods_section_id::VARCHAR; END IF;
+    --IF (price_section_id IS NOT NULL) THEN strFinInfoUpdateArgs := strFinInfoUpdateArgs || ' ' || price_section_id::VARCHAR; END IF;
 
     IF flag_new THEN
-        strParams := ' ' || mods_section_id::VARCHAR || ' ' || price_section_id::VARCHAR;
-        cmd := 'ssh uploader@' || site || ' /usr/bin/php -f ./fin-info-update.php '|| res.out_model_name || strParams;
+        strFinInfoUpdateArgs := ' ' || mods_section_id::VARCHAR || ' ' || price_section_id::VARCHAR;
+        cmd := 'ssh uploader@' || site || ' /usr/bin/php -f ./fin-info-update.php '|| res.out_model_name || strFinInfoUpdateArgs;
     ELSE
         cmd := 'ssh uploader@' || site || ' /usr/bin/php -f ./fin-info-update.php '|| res.out_model_name ;
     END IF;
@@ -145,7 +155,8 @@ BEGIN
     IF flag_new THEN
         UPDATE devmod.device 
             SET  ie_xml_id = dev_xml_id, ie_xml_id_dt = now()
-            WHERE exp.dev_id = dev_id;
+            WHERE exp.dev_id = dev_id
+                AND exp.exp_version_num = version_num;
     END IF; -- flag_new
 
     exp.exp_csv_status := COALESCE( (exp.exp_csv_status::BIT(3) | device_mode)::INTEGER, device_mode::INTEGER);
