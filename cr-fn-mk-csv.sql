@@ -21,6 +21,7 @@ $BODY$DECLARE
   price_mode bit(3) = B'100';
   flag_new BOOLEAN;
   loc_xml_id INTEGER;
+  strCatGroups VARCHAR;
 BEGIN
     -- site := site();
     SELECT * INTO exp FROM devmod.bx_export_log WHERE exp_id = aexp_id FOR UPDATE;
@@ -34,7 +35,7 @@ BEGIN
     
     -- for devmod.ie_param
     SELECT ie_xml_id INTO loc_xml_id FROM devmod.device d
-    WHERE d.dev_id = exp.dev_id AND d.version_num = exp.version_num;
+    WHERE d.dev_id = exp.dev_id AND d.version_num = exp.exp_version_num;
     IF loc_xml_id IS NULL THEN flag_new := TRUE; ELSE flag_new := FALSE; END IF;
     RAISE NOTICE 'flag_new=%', flag_new;
 
@@ -46,12 +47,12 @@ BEGIN
         
         cmd := 'scp -q '|| res.out_csv || ' uploader@' || site || ':upload/' || devmod.ie_param('csv_file', flag_new, modificators_mode);
         str_res := public.shell(cmd);
-        if (str_res != '') then RAISE 'Modificators cmd=% result=[%]', cmd, str_res; END IF;
+        if (str_res != '') then RAISE 'Modificators cmd=%^result=[%]', cmd, str_res; END IF;
 
         -- TODO python paramiko.SSHClient()
         cmd := 'ssh uploader@' || site || ' sh ./run-import-profile.sh '|| devmod.ie_param('import_profile', flag_new, modificators_mode);
         str_res := public.shell(cmd);
-        if (str_res != '') then RAISE 'Modificators cmd=%, result=[%]', cmd, str_res; END IF;
+        if (str_res != '') then RAISE 'Modificators cmd=%^result=[%]', cmd, str_res; END IF;
 
         -- только для новых товаров
         IF flag_new THEN
@@ -60,13 +61,13 @@ BEGIN
             BEGIN
                 mods_section_id := cast(str_res as integer);
                 exception WHEN OTHERS 
-                    THEN RAISE 'Modificators cmd=%, result=[%]', cmd, str_res; 
+                    THEN RAISE 'Modificators cmd=%^result=[%]', cmd, str_res; 
                 END;
             RAISE NOTICE 'mods_section_id=%', mods_section_id;
         END IF; -- flag_new
 
       exp.exp_csv_status := COALESCE( (exp.exp_csv_status::BIT(3) | modificators_mode)::INTEGER, modificators_mode::INTEGER);
-  END IF;
+    END IF;
 
   IF (exp.exp_mod::BIT(3) & price_mode = price_mode) THEN -- prices
     res := devmod.mk_csv_prices(exp.exp_id);
@@ -76,15 +77,15 @@ BEGIN
 
     cmd := 'ssh uploader@' || site || ' php -f ./del-prices-before-import.php '|| res.out_xml_id ;
     str_res := public.shell(cmd);
-    if (str_res != '') then RAISE 'Prices cmd=%, result=[%]', cmd, str_res; END IF;
+    if (str_res != '') then RAISE 'Prices cmd=%^result=[%]', cmd, str_res; END IF;
 
     cmd := 'scp -q '|| res.out_csv || ' uploader@' || site || ':upload/' || devmod.ie_param('csv_file', flag_new, price_mode);
     str_res := public.shell(cmd);
-    if (str_res != '') then RAISE 'Prices cmd=%, result=[%]', cmd, str_res; END IF;
+    if (str_res != '') then RAISE 'Prices cmd=%^result=[%]', cmd, str_res; END IF;
 
     cmd := 'ssh uploader@' || site || ' sh ./run-import-profile.sh '|| devmod.ie_param('import_profile', flag_new, price_mode);
     str_res := public.shell(cmd);
-    if (str_res != '') then RAISE 'Prices cmd=%, result=[%]', cmd, str_res; END IF;
+    if (str_res != '') then RAISE 'Prices cmd=%^result=[%]', cmd, str_res; END IF;
 
     -- только для новых товаров
     IF flag_new THEN
@@ -94,7 +95,7 @@ BEGIN
         BEGIN
             price_section_id := cast(str_res as integer);
             exception WHEN OTHERS 
-                THEN RAISE 'Prices cmd=% result=[%]', cmd, str_res; 
+                THEN RAISE 'Prices cmd=%^result=[%]', cmd, str_res; 
         END;
         RAISE NOTICE 'price_section_id=%', price_section_id;
     ELSE
@@ -104,7 +105,7 @@ BEGIN
         BEGIN
             dev_xml_id := cast(str_res as integer);
             exception WHEN OTHERS 
-                THEN RAISE 'fin-info-update cmd=%, result=[%]', cmd, str_res; 
+                THEN RAISE 'fin-info-update cmd=%^result=[%]', cmd, str_res; 
         END;
     END IF; -- flag_new
     
@@ -120,35 +121,36 @@ BEGIN
     cmd := '/usr/bin/scp -q '|| res.out_csv || ' uploader@' || site || ':upload/' || devmod.ie_param('csv_file', flag_new, device_mode);
     RAISE NOTICE 'Device upload cmd=[%]', cmd;
     str_res := public.shell(cmd);    
-    if (str_res != '') then RAISE 'Device cmd=%, result=[%]', cmd, str_res; END IF;
+    if (str_res != '') then RAISE 'Device cmd=%^result=[%]', cmd, str_res; END IF;
 
-    cmd := 'ssh uploader@' || site || ' sh ./run-import-profile.sh '|| devmod.ie_param('import_profile', flag_new, device_mode);
+    cmd := '/usr/bin/ssh uploader@' || site || ' sh ./run-import-profile.sh '|| devmod.ie_param('import_profile', flag_new, device_mode);
     RAISE NOTICE 'Device import cmd=[%]', cmd;
     str_res := public.shell(cmd);
-    if (str_res != '') then RAISE 'Device cmd=%, result=[%]', cmd, str_res; END IF;
+    if (str_res != '') then RAISE 'Device cmd=%^result=[%]', cmd, str_res; END IF;
 
-    SELECT ' '|| bx_fld_value INTO strFinInfoUpdateArgs FROM devmod.bx_export_csv WHERE exp_id = aexp_id AND bx_fld_name = 'bx_groups' ;
-    cmd := 'ssh uploader@' || site || ' /usr/bin/php -f ./set-dev-groups.php '|| res.out_model_name || strFinInfoUpdateArgs;
+    SELECT ' '|| bx_fld_value INTO strCatGroups FROM devmod.bx_export_csv WHERE exp_id = aexp_id AND bx_fld_name = 'bx_groups' ;
+    cmd := '/usr/bin/ssh uploader@' || site || ' /usr/bin/php -f ./set-dev-groups.php '|| res.out_model_name || strCatGroups;
     str_res := public.shell(cmd);
-    if (str_res != '') then RAISE 'Device cmd=%, result=[%]', cmd, str_res; END IF;
-
-    -- strFinInfoUpdateArgs := ' ';
-    --IF (mods_section_id IS NOT NULL) THEN strFinInfoUpdateArgs := strFinInfoUpdateArgs || ' ' || mods_section_id::VARCHAR; END IF;
-    --IF (price_section_id IS NOT NULL) THEN strFinInfoUpdateArgs := strFinInfoUpdateArgs || ' ' || price_section_id::VARCHAR; END IF;
+    if position('ERROR' in str_res) > 0 then RAISE 'Device cmd=%^result=[%]', cmd, str_res; END IF;
 
     IF flag_new THEN
-        strFinInfoUpdateArgs := ' ' || mods_section_id::VARCHAR || ' ' || price_section_id::VARCHAR;
-        cmd := 'ssh uploader@' || site || ' /usr/bin/php -f ./fin-info-update.php '|| res.out_model_name || strFinInfoUpdateArgs;
+        strFinInfoUpdateArgs := ' ';
+        IF (mods_section_id IS NOT NULL) THEN strFinInfoUpdateArgs := strFinInfoUpdateArgs || ' ' || mods_section_id::VARCHAR; END IF;
+        IF (price_section_id IS NOT NULL) THEN strFinInfoUpdateArgs := strFinInfoUpdateArgs || ' ' || price_section_id::VARCHAR; END IF;
+        RAISE NOTICE 'Device strFinInfoUpdateArgs=[%]', strFinInfoUpdateArgs;
+        RAISE NOTICE 'Device res.out_model_name=[%]', res.out_model_name;
+        cmd := '/usr/bin/ssh uploader@' || site || ' /usr/bin/php -f ./fin-info-update.php '|| res.out_model_name || strFinInfoUpdateArgs;
     ELSE
-        cmd := 'ssh uploader@' || site || ' /usr/bin/php -f ./fin-info-update.php '|| res.out_model_name ;
+        cmd := '/usr/bin/ssh uploader@' || site || ' /usr/bin/php -f ./fin-info-update.php '|| res.out_model_name ;
     END IF;
 
+    RAISE NOTICE 'Device fin-info-update cmd=[%]', cmd;
     str_res := public.shell(cmd);
 
     BEGIN
         dev_xml_id := cast(str_res as integer);
         exception WHEN OTHERS 
-            THEN RAISE 'Device cmd=%, result=[%]', cmd, str_res; 
+            THEN RAISE 'Device cmd=%^result=[%]', cmd, str_res; 
     END;
     RAISE NOTICE 'dev_xml_id=%', dev_xml_id;
 
