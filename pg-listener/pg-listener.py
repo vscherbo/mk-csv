@@ -15,18 +15,16 @@ parser.add_argument('--host', type=str, help='PG host')
 parser.add_argument('--db', type=str, help='database name')
 parser.add_argument('--user', type=str, help='db user')
 args = parser.parse_args()
-print(parser.prog)
-print(args.host)
-print(args.db)
-print(args.user)
+# print(parser.prog)
+# print(args.host)
+# print(args.db)
+# print(args.user)
 
 SIGNALS_TO_NAMES_DICT = dict((getattr(signal, n), n) for n in dir(signal)
                              if n.startswith('SIG') and '_' not in n)
 
 
 def signal_handler(asignal, frame):
-    # global do_while
-    do_while = 0
     print('\nGot signal: ',
           SIGNALS_TO_NAMES_DICT.get(asignal, "Unnamed signal: %d" % asignal))
 
@@ -34,17 +32,11 @@ signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGHUP, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
-dbname = 'arc_energo'
-host = 'vm-pg-devel'
-user = 'arc_energo'
-
 pg_channel = 'do_export'
 pg_timeout = 2
 
 # password='PASS'-.pgpass
-# DSN = 'dbname=%s host=%s user=%s' % (args.db, args.host, args.user)
-DSN = 'dbname=%s host=%s user=%s' % (dbname, host, user)
-
+DSN = 'dbname=%s host=%s user=%s' % (args.db, args.host, args.user)
 
 conn = psycopg2.connect(DSN)
 conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
@@ -60,9 +52,9 @@ while 1 == do_while:
     except BaseException, exc:
         if 4 == exc.args[0]:  # interrupt
             do_while = 0
-            print(exc.args[1])
-    finally:
-        sel_res = ([], [], [])
+            print(" exception4=", exc.args[1])
+    # finally:
+    #    sel_res == ([], [], [])
 
     if sel_res == ([], [], []):
         print("%s Timeout" % datetime.now())
@@ -82,6 +74,5 @@ while 1 == do_while:
                 emp_id = curs.fetchone()
                 curs.callproc('fn_push_article2user', [emp_id, str(exc)])
             print(str(datetime.now()) + " Finish fn_mk_csv")
-            do_while = 0  # debug
 
 print(str(datetime.now()) + " Exiting...")
