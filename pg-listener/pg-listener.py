@@ -72,7 +72,7 @@ while 1 == do_while:
                              WHERE exp_id='
                              + notify.payload)
                 emp_id = curs.fetchone()
-                curs.callproc('fn_push_article2user', [emp_id, str(exc)])
+                curs.callproc('fn_push_article2user', [emp_id, 'exp_id='+ notify.payload + '/' + str(exc)])
             print(str(datetime.now()) + " Finish fn_mk_csv")
 
 print(str(datetime.now()) + " Exiting...")
