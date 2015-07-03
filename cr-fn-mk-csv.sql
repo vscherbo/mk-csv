@@ -180,7 +180,7 @@ BEGIN
     -- cmd := '/usr/bin/ssh uploader@' || site || ' /usr/bin/php -f ./fin-info-update.php '|| res.out_model_name || strFinInfoUpdateArgs;
     cmd := '/usr/bin/php ./fin-info-update-params.php -n'|| res.out_model_name || strFinInfoUpdateArgs;
 
-    RAISE NOTICE 'Device fin-info-update cmd=[%]', cmd;
+    RAISE NOTICE 'Device fin-info-update-params cmd=[%]', cmd;
     -- str_res := public.shell(cmd);
     res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
     IF res_exec.err_str <> '' THEN RAISE 'fin-info-update cmd=%^err_str=[%]', cmd, res_exec.err_str; 
