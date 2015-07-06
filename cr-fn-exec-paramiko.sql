@@ -29,8 +29,8 @@ $BODY$
  client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
  client.connect(hostname=rem_host, username=rem_user, pkey=k, port=rem_port)
  stdin, stdout, stderr = client.exec_command(rem_cmd)
- out_str = str(stdout.read())
- err_str = str(stderr.read())
+ out_str = str(stdout.read()).strip()
+ err_str = str(stderr.read()).strip()
 
  flog.write("out_str=" + out_str +'\n')
  flog.write("err_str=" + err_str +'\n')
