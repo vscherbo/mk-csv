@@ -28,6 +28,7 @@ $BODY$DECLARE
   loc_prop674 INTEGER; -- Раздел с модификациями (ценами)
   loc_prop675 INTEGER; -- Модификаторы прибора
   strCatGroups VARCHAR;
+  good_export_str VARCHAR;
 BEGIN
     -- site := site();
     SELECT * INTO exp FROM devmod.bx_export_log WHERE exp_id = aexp_id FOR UPDATE;
@@ -217,16 +218,18 @@ BEGIN
     -- exp.exp_csv_status := COALESCE( (exp.exp_csv_status | device_mode), device_mode);
   END IF; -- device
 
-  UPDATE devmod.bx_export_log SET exp_csv_status = exp.exp_csv_status WHERE exp_id = aexp_id;
     -- put an Article about finish of export
+  good_export_str := 'Завершён экспорт модели ' || res.out_model_name || ' на сайт ' || site || ' (exp_id='||aexp_id|| ')' ;
   WITH inserted AS (
         INSERT INTO "Статьи"("Содержание", "ДатаСтатьи", "Автор") 
-        VALUES ('Завершён экспорт модели ' || res.out_model_name || ' на сайт ' || site || ' (exp_id='||aexp_id|| ')', clock_timestamp(), 0)
+        VALUES (good_export_str, clock_timestamp(), 0)
         RETURNING "НомерСтатьи"
   )
   SELECT "НомерСтатьи" INTO article_id FROM inserted;
   INSERT INTO "Задания"("НомерСтатей", "Кому", "Прочел") VALUES (article_id, exp.exp_creator, TRUE);
-    
+
+  UPDATE devmod.bx_export_log SET exp_csv_status = exp.exp_csv_status, exp_result = good_export_str, exp_finish_dt = clock_timestamp() WHERE exp_id = aexp_id;
+  
   RETURN;
 END$BODY$
   LANGUAGE plpgsql VOLATILE
