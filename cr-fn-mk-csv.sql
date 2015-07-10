@@ -92,7 +92,7 @@ BEGIN
     RAISE NOTICE 'prices_model_name=%', res.out_model_name;
     IF (res.out_res != '') THEN RAISE 'Prices out_res=%', res.out_res; END IF;
 
-    -- IF not flag_prices_new THEN
+    IF not flag_prices_new THEN
         -- cmd := 'ssh uploader@' || site || ' php -f ./del-prices-before-import.php '|| res.out_xml_id ;
         -- str_res := public.shell(cmd);
         cmd := 'php -f ./del-prices-before-import.php '|| COALESCE(res.out_xml_id, '') ;
@@ -100,7 +100,7 @@ BEGIN
         IF res_exec.err_str <> '' THEN RAISE 'Prices cmd=%^err_str=[%]', cmd, res_exec.err_str; 
         ELSE str_res := res_exec.out_str;
         END IF;
-    -- END IF;
+    END IF;
 
     cmd := 'scp -q '|| res.out_csv || ' uploader@' || site || ':upload/' || devmod.ie_param('csv_file', flag_prices_new, price_mode);
     str_res := public.shell(cmd);
@@ -125,29 +125,33 @@ BEGIN
             exception WHEN OTHERS 
                 THEN RAISE 'Prices cmd=%^result=[%]', cmd, str_res; 
         END;
-    ELSE price_section_id := loc_prop674;
+    ELSE -- NOT flag_prices_new
+        price_section_id := loc_prop674;
+        -- TODO выделить в процедуру
+        IF NOT (exp.exp_mod::BIT(3) & device_mode = device_mode) THEN -- если device не будет обновляться
+            -- скопировано из ветки device
+            -- cmd := 'ssh uploader@' || site || ' /usr/bin/php -f ./fin-info-update.php '|| res.out_model_name ;
+            -- str_res := public.shell(cmd);
+            strFinInfoUpdateArgs := ' ';
+            IF (mods_section_id IS NOT NULL) THEN strFinInfoUpdateArgs := strFinInfoUpdateArgs || ' -m' || mods_section_id::VARCHAR; END IF;
+            IF (price_section_id IS NOT NULL) THEN strFinInfoUpdateArgs := strFinInfoUpdateArgs || ' -p' || price_section_id::VARCHAR; END IF;
+            RAISE NOTICE 'Price strFinInfoUpdateArgs=[%]', strFinInfoUpdateArgs;
+            RAISE NOTICE 'Price res.out_model_name=[%]', res.out_model_name;
+            -- cmd := '/usr/bin/ssh uploader@' || site || ' /usr/bin/php -f ./fin-info-update.php '|| res.out_model_name || strFinInfoUpdateArgs;
+            cmd := '/usr/bin/php ./fin-info-update-params.php -n'|| res.out_model_name || strFinInfoUpdateArgs;
+            res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
+            IF res_exec.err_str <> '' THEN RAISE 'fin-info-update cmd=%^err_str=[%]', cmd, res_exec.err_str; 
+            ELSE str_res := res_exec.out_str;
+            END IF;
+            BEGIN
+                dev_xml_id := cast(str_res as integer);
+                exception WHEN OTHERS 
+                    THEN RAISE 'fin-info-update cmd=%^result=[%]', cmd, str_res; 
+            END;
+        END IF; -- если device не будет обновляться
     END IF; -- flag_prices_new
     RAISE NOTICE 'price_section_id=%', price_section_id;
-
-    -- скопировано из ветки device
-    -- cmd := 'ssh uploader@' || site || ' /usr/bin/php -f ./fin-info-update.php '|| res.out_model_name ;
-    -- str_res := public.shell(cmd);
-    strFinInfoUpdateArgs := ' ';
-    IF (mods_section_id IS NOT NULL) THEN strFinInfoUpdateArgs := strFinInfoUpdateArgs || ' -m' || mods_section_id::VARCHAR; END IF;
-    IF (price_section_id IS NOT NULL) THEN strFinInfoUpdateArgs := strFinInfoUpdateArgs || ' -p' || price_section_id::VARCHAR; END IF;
-    RAISE NOTICE 'Price strFinInfoUpdateArgs=[%]', strFinInfoUpdateArgs;
-    RAISE NOTICE 'Price res.out_model_name=[%]', res.out_model_name;
-    -- cmd := '/usr/bin/ssh uploader@' || site || ' /usr/bin/php -f ./fin-info-update.php '|| res.out_model_name || strFinInfoUpdateArgs;
-    cmd := '/usr/bin/php ./fin-info-update-params.php -n'|| res.out_model_name || strFinInfoUpdateArgs;
-    res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
-    IF res_exec.err_str <> '' THEN RAISE 'fin-info-update cmd=%^err_str=[%]', cmd, res_exec.err_str; 
-    ELSE str_res := res_exec.out_str;
-    END IF;
-    BEGIN
-        dev_xml_id := cast(str_res as integer);
-        exception WHEN OTHERS 
-            THEN RAISE 'fin-info-update cmd=%^result=[%]', cmd, str_res; 
-    END;
+    
     
     exp.exp_csv_status := COALESCE( (exp.exp_csv_status::BIT(3) | price_mode)::INTEGER, price_mode::INTEGER);
   END IF;
@@ -168,11 +172,13 @@ BEGIN
     str_res := public.shell(cmd);
     if (str_res != '') then RAISE 'Device cmd=%^result=[%]', cmd, str_res; END IF;
 
+    /*
     SELECT ' '|| bx_fld_value INTO strCatGroups FROM devmod.bx_export_csv WHERE exp_id = aexp_id AND bx_fld_name = 'bx_groups' ;
     cmd := '/usr/bin/ssh uploader@' || site || ' /usr/bin/php -f ./set-dev-groups.php '|| res.out_model_name || strCatGroups;
     str_res := public.shell(cmd);
     if position('ERROR' in str_res) > 0 then RAISE 'Device cmd=%^result=[%]', cmd, str_res; END IF;
-
+    */
+    
     strFinInfoUpdateArgs := ' ';
     IF (mods_section_id IS NOT NULL) THEN strFinInfoUpdateArgs := strFinInfoUpdateArgs || ' -m' || mods_section_id::VARCHAR; END IF;
     IF (price_section_id IS NOT NULL) THEN strFinInfoUpdateArgs := strFinInfoUpdateArgs || ' -p' || price_section_id::VARCHAR; END IF;
