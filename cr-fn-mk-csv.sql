@@ -35,7 +35,7 @@ BEGIN
     -- IF exp IS NULL THEN RAISE 'exp_id=% not found in devmod.bx_export_log', aexp_id ; RETURN; END IF;
     IF NOT found THEN RAISE 'exp_id=% not found in devmod.bx_export_log', aexp_id ; RETURN; END IF;
     site := exp.exp_site;
-    IF site != 'kipspb2.arc.world' THEN -- DEBUG
+    IF site != 'kipspb-fl.arc.world' THEN -- DEBUG
         RAISE 'Запрещённый сайт=%', site;
         RETURN;
     END IF;
@@ -65,7 +65,7 @@ BEGIN
         str_res := public.shell(cmd);
         if (str_res != '') then RAISE 'Modificators cmd=%^result=[%]', cmd, str_res; END IF;
 
-        -- только для новых товаров
+        -- только для модификаторов новых товаров
         IF flag_mods_new THEN
             -- cmd := 'ssh uploader@' || site || ' php -f ./get-modificators-ID.php '|| res.out_model_name;
             -- str_res := public.shell(cmd);
@@ -93,12 +93,14 @@ BEGIN
     IF (res.out_res != '') THEN RAISE 'Prices out_res=%', res.out_res; END IF;
 
     IF not flag_prices_new THEN
-        -- cmd := 'ssh uploader@' || site || ' php -f ./del-prices-before-import.php '|| res.out_xml_id ;
-        -- str_res := public.shell(cmd);
         cmd := 'php -f ./del-prices-before-import.php '|| COALESCE(res.out_xml_id, '') ;
         res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
+        IF res_exec.err_str <> '' THEN RAISE 'Prices cmd=%^err_str=[%]', cmd, res_exec.err_str;
+        END IF;
+    ELSE -- existing prices section
+        cmd := 'php -f ./del-price-section.php '|| COALESCE(res.out_model_name, '') ;
+        res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
         IF res_exec.err_str <> '' THEN RAISE 'Prices cmd=%^err_str=[%]', cmd, res_exec.err_str; 
-        ELSE str_res := res_exec.out_str;
         END IF;
     END IF;
 
