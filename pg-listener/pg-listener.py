@@ -11,6 +11,10 @@ import select
 import psycopg2
 import psycopg2.extensions
 
+pg_channel = 'do_export'
+pg_timeout = 5
+mark_display=3600
+
 parser = argparse.ArgumentParser(description='Pg listener for .')
 parser.add_argument('--host', type=str, help='PG host')
 parser.add_argument('--db', type=str, help='database name')
@@ -35,41 +39,12 @@ signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGHUP, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
-pg_channel = 'do_export'
-pg_timeout = 5
 
-# password='PASS'-.pgpass
-DSN = 'dbname=%s host=%s user=%s' % (args.db, args.host, args.user)
-
-conn = psycopg2.connect(DSN)
-conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
-
-curs = conn.cursor()
-curs.execute("LISTEN " + pg_channel + ";")
-mark_counter=0
-mark_display=3600
-print("Started at %s" % datetime.now())
-print("Waiting for notifications on channel %s" % pg_channel)
-do_while = 1
-rc = 1
-sel_res = ([], [], [])
-while 1 == do_while:
-    try:
-        sel_res = select.select([conn], [], [], pg_timeout)
-    except BaseException, exc:
-        if 4 == exc.args[0]:  # interrupt
-            do_while = 0
-            rc = 0
-            print(" exception4=", exc.args[1])
-    # finally:
-    #    sel_res = ([], [], [])
-
+def do_listen(a_pg_timeout):
+    sel_res = select.select([conn], [], [], a_pg_timeout)
     if sel_res == ([], [], []):
+        pass
         # print("%s Timeout" % datetime.now())
-        mark_counter += pg_timeout
-        if mark_counter >= mark_display:
-            mark_counter=0
-            print("%s Heartbeat mark" % datetime.now())
     else:
         conn.poll()
         # while (1 == do_while) and conn.notifies:
@@ -94,8 +69,39 @@ while 1 == do_while:
                     curs.execute("UPDATE devmod.bx_export_log SET exp_result = quote_literal('" + str(exc).replace("'", "''") +  "') WHERE exp_id = " + notify.payload + ";" )
                 except psycopg2.Error, exc:
                     print("% _exc UPDATE bx_export_log=%", parser.prog, exc)
-
             print(str(datetime.now()) + " Finish fn_mk_csv")
+            # raise ValueError('Debug exception')
+
+# password='PASS'-.pgpass
+DSN = 'dbname=%s host=%s user=%s' % (args.db, args.host, args.user)
+
+conn = psycopg2.connect(DSN)
+conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
+
+curs = conn.cursor()
+curs.execute("LISTEN " + pg_channel + ";")
+mark_counter=0
+print("Started at %s" % datetime.now())
+print("Waiting for notifications on channel %s" % pg_channel)
+do_while = 1
+rc = 1
+sel_res = ([], [], [])
+
+# main loop
+while 1 == do_while:
+    try:
+        do_listen(pg_timeout)
+        mark_counter += pg_timeout
+        if mark_counter >= mark_display:
+            mark_counter=0
+            print("%s Heartbeat mark" % datetime.now())
+    except BaseException, exc:
+        if 4 == exc.args[0]:  # interrupt
+            # do_while = 0
+            rc = 0
+            print(" exception4=", exc.args[1])
+        else:
+            print(" Other exception=", exc.args)
 
 print(str(datetime.now()) + " Exiting...")
 exit(rc)
