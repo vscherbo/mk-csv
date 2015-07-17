@@ -28,6 +28,8 @@ SIGNALS_TO_NAMES_DICT = dict((getattr(signal, n), n) for n in dir(signal)
 def signal_handler(asignal, frame):
     print('\nGot signal: ',
           SIGNALS_TO_NAMES_DICT.get(asignal, "Unnamed signal: %d" % asignal))
+    global do_while
+    do_while = 0
 
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGHUP, signal_handler)
@@ -70,20 +72,29 @@ while 1 == do_while:
             print("%s Heartbeat mark" % datetime.now())
     else:
         conn.poll()
-        while (1 == do_while) and conn.notifies:
+        # while (1 == do_while) and conn.notifies:
+        while conn.notifies:
             notify = conn.notifies.pop()
             print(str(datetime.now()) + " Got NOTIFY:",
                   notify.pid, notify.channel, notify.payload)
             try:
                 curs.callproc('devmod.fn_mk_csv', [notify.payload])
             except psycopg2.Error, exc:
-                print("% _exception=%", parser.prog, exc)
+                print("% _exc_fn_mk_csv=%", parser.prog, exc)
                 curs.execute('SELECT exp_creator FROM devmod.bx_export_log\
                              WHERE exp_id='
                              + notify.payload)
                 emp_id = curs.fetchone()
-                curs.callproc('fn_push_article2user', [emp_id, 'exp_id='+ notify.payload + '/' + str(exc)])
-                curs.execute("UPDATE devmod.bx_export_log SET exp_result = quote_literal('" + str(exc).replace("'", "''") +  "') WHERE exp_id = " + notify.payload + ";" )
+                try:
+                    curs.callproc('fn_push_article2user', [emp_id, 'exp_id='+ notify.payload + '/' + str(exc)])
+                except psycopg2.Error, exc:
+                    print("% _exc_fn_push_article2user=%", parser.prog, exc)
+
+                try:
+                    curs.execute("UPDATE devmod.bx_export_log SET exp_result = quote_literal('" + str(exc).replace("'", "''") +  "') WHERE exp_id = " + notify.payload + ";" )
+                except psycopg2.Error, exc:
+                    print("% _exc UPDATE bx_export_log=%", parser.prog, exc)
+
             print(str(datetime.now()) + " Finish fn_mk_csv")
 
 print(str(datetime.now()) + " Exiting...")
