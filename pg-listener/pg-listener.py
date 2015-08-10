@@ -3,6 +3,7 @@
 
 from __future__ import print_function
 from datetime import datetime
+from time import sleep
 import argparse
 
 from sys import exit
@@ -33,7 +34,9 @@ def signal_handler(asignal, frame):
     print('\nGot signal: ',
           SIGNALS_TO_NAMES_DICT.get(asignal, "Unnamed signal: %d" % asignal))
     global do_while
+    global do_connect
     do_while = 0
+    do_connect = 0
 
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGHUP, signal_handler)
@@ -44,7 +47,7 @@ def do_listen(a_pg_timeout):
     sel_res = select.select([conn], [], [], a_pg_timeout)
     if sel_res == ([], [], []):
         pass
-        # print("%s Timeout" % datetime.now())
+        print("%s Timeout" % datetime.now())
     else:
         conn.poll()
         # while (1 == do_while) and conn.notifies:
@@ -75,33 +78,42 @@ def do_listen(a_pg_timeout):
 # password='PASS'-.pgpass
 DSN = 'dbname=%s host=%s user=%s' % (args.db, args.host, args.user)
 
-conn = psycopg2.connect(DSN)
-conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
-
-curs = conn.cursor()
-curs.execute("LISTEN " + pg_channel + ";")
-mark_counter=0
-print("Started at %s" % datetime.now())
-print("Waiting for notifications on channel %s" % pg_channel)
-do_while = 1
-rc = 1
-sel_res = ([], [], [])
-
-# main loop
-while 1 == do_while:
+do_connect = 1
+while 1 == do_connect:
+    rc = 1
+    sel_res = ([], [], [])
     try:
-        do_listen(pg_timeout)
-        mark_counter += pg_timeout
-        if mark_counter >= mark_display:
-            mark_counter=0
-            print("%s Heartbeat mark" % datetime.now())
+        conn = psycopg2.connect(DSN)
+        conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
+        curs = conn.cursor()
+        curs.execute("LISTEN " + pg_channel + ";")
+        mark_counter=0
+        print("Started at %s" % datetime.now())
+        print("Waiting for notifications on channel %s" % pg_channel)
+        do_while = 1
     except BaseException, exc:
-        if 4 == exc.args[0]:  # interrupt
-            # do_while = 0
-            rc = 0
-            print(" exception4=", exc.args[1])
-        else:
-            print(" Other exception=", exc.args)
+        print(" Exception on connect=", exc.args)
+        do_while = 0
+        sleep(pg_timeout);
+
+    # main loop
+    while 1 == do_while:
+        try:
+            do_listen(pg_timeout)
+            mark_counter += pg_timeout
+            if mark_counter >= mark_display:
+                mark_counter=0
+                print("%s Heartbeat mark" % datetime.now())
+        except BaseException, exc:
+            if 4 == exc.args[0]:  # interrupt
+                # do_while = 0
+                rc = 0
+                print(" exception4=", exc.args[1])
+            elif exc.args[0].find('closed'):
+                do_while = 0
+                print("Try to re-connect...")
+            else:
+                print(" Other exception=", exc.args)
 
 print(str(datetime.now()) + " Exiting...")
 exit(rc)
