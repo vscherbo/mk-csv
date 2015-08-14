@@ -1,15 +1,14 @@
--- Function: public.exec_paramiko(character varying, character varying, character varying, character varying)
+-- Function: public.exec_paramiko(character varying, integer, character varying, character varying)
 
-DROP FUNCTION public.exec_paramiko(character varying, integer, character varying, character varying);
+-- DROP FUNCTION public.exec_paramiko(character varying, integer, character varying, character varying);
 
 CREATE OR REPLACE FUNCTION public.exec_paramiko(
-    rem_host character varying,
-    rem_port integer,
-    rem_user character varying,
-    rem_cmd1 character varying,
+    IN rem_host character varying,
+    IN rem_port integer,
+    IN rem_user character varying,
+    IN rem_cmd1 character varying,
     OUT out_str character varying,
-    OUT err_str character varying
-)
+    OUT err_str character varying)
   RETURNS record AS
 $BODY$
 
