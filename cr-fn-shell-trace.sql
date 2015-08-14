@@ -1,9 +1,9 @@
--- Function: shell(text)
+-- Function: public.shell(character varying)
 
-DROP FUNCTION shell(VARCHAR);
+-- DROP FUNCTION public.shell(character varying);
 
-CREATE OR REPLACE FUNCTION shell(IN acmd VARCHAR)
-  RETURNS VARCHAR AS
+CREATE OR REPLACE FUNCTION public.shell(acmd character varying)
+  RETURNS character varying AS
 $BODY$
  import subprocess
  from datetime import datetime
@@ -31,3 +31,5 @@ $BODY$
 $BODY$
   LANGUAGE plpython2u VOLATILE
   COST 100;
+ALTER FUNCTION public.shell(character varying)
+  OWNER TO postgres;
