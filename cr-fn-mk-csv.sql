@@ -25,6 +25,7 @@ $BODY$DECLARE
   flag_mods_new BOOLEAN;
   flag_prices_new BOOLEAN;
   loc_xml_id INTEGER;
+  loc_mod_single BOOLEAN; -- единственная модификация
   loc_prop674 INTEGER; -- Раздел с модификациями (ценами)
   loc_prop675 INTEGER; -- Модификаторы прибора
   strCatGroups VARCHAR;
@@ -41,7 +42,7 @@ BEGIN
     END IF;
     
     -- for devmod.ie_param
-    SELECT ie_xml_id, ip_prop674, ip_prop675 INTO loc_xml_id, loc_prop674, loc_prop675 FROM devmod.device d
+    SELECT ie_xml_id, ip_prop674, ip_prop675, mod_single INTO loc_xml_id, loc_prop674, loc_prop675, loc_mod_single FROM devmod.device d
     WHERE d.dev_id = exp.dev_id AND d.version_num = exp.exp_version_num;
     IF loc_xml_id IS NULL THEN flag_dev_new := TRUE; ELSE flag_dev_new := FALSE; END IF;
     IF loc_prop674 IS NULL THEN flag_prices_new := TRUE; ELSE flag_prices_new := FALSE; END IF;
@@ -90,17 +91,18 @@ BEGIN
     res := devmod.mk_csv_prices(exp.exp_id);
     RAISE NOTICE 'prices_out_file=%', res.out_csv;
     RAISE NOTICE 'prices_model_name=%', res.out_model_name;
+    RAISE NOTICE 'prices_out_xml_id=%', res.out_xml_id;
     IF (res.out_res != '') THEN RAISE 'Prices out_res=%', res.out_res; END IF;
 
-    IF not flag_prices_new THEN
-        cmd := 'php -f ./del-prices-before-import.php '|| COALESCE(res.out_xml_id, '') ;
-        res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
-        IF res_exec.err_str <> '' THEN RAISE 'Prices cmd=%^err_str=[%]', cmd, res_exec.err_str;
-        END IF;
-    ELSE -- existing prices section
+    IF flag_prices_new THEN
         cmd := 'php -f ./del-price-section.php '|| COALESCE(res.out_model_name, '') ;
         res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
         IF res_exec.err_str <> '' THEN RAISE 'Prices cmd=%^err_str=[%]', cmd, res_exec.err_str; 
+        END IF;
+    ELSE -- existing prices section
+        cmd := 'php -f ./del-prices-before-import.php '|| COALESCE(res.out_xml_id, '') ;
+        res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
+        IF res_exec.err_str <> '' THEN RAISE 'Prices cmd=%^err_str=[%]', cmd, res_exec.err_str;
         END IF;
     END IF;
 
