@@ -1,6 +1,6 @@
--- Function: devmod.mk_csv_general(integer, regclass, integer)
+-- Function: devmod.mk_csv_general(integer, regclass, integer, boolean)
 
--- DROP FUNCTION devmod.mk_csv_general(integer, regclass, integer);
+-- DROP FUNCTION devmod.mk_csv_general(integer, regclass, integer, boolean);
 
 CREATE OR REPLACE FUNCTION devmod.mk_csv_general(
     IN alogid integer,
@@ -100,3 +100,5 @@ BEGIN
 END$BODY$
   LANGUAGE plpgsql VOLATILE
   COST 100;
+ALTER FUNCTION devmod.mk_csv_general(integer, regclass, integer, boolean)
+  OWNER TO arc_energo;
