@@ -36,10 +36,11 @@ BEGIN
     -- IF exp IS NULL THEN RAISE 'exp_id=% not found in devmod.bx_export_log', aexp_id ; RETURN; END IF;
     IF NOT found THEN RAISE 'exp_id=% not found in devmod.bx_export_log', aexp_id ; RETURN; END IF;
     site := exp.exp_site;
-    IF site != 'kipspb-fl.arc.world' THEN -- DEBUG
-        RAISE 'Запрещённый сайт=%', site;
+    IF site = 'kipspb.ru' THEN -- DEBUG
+        RAISE 'Запрещённый для отладки сайт=%', site;
         RETURN;
     END IF;
+
     
     -- for devmod.ie_param
     SELECT ie_xml_id, ip_prop674, ip_prop675, mod_single INTO loc_xml_id, loc_prop674, loc_prop675, loc_mod_single FROM devmod.device d
@@ -62,7 +63,7 @@ BEGIN
         if (str_res != '') then RAISE 'Modificators cmd=%^result=[%]', cmd, str_res; END IF;
 
         -- TODO python paramiko.SSHClient()
-        cmd := 'ssh uploader@' || site || ' sh ./run-import-profile.sh '|| devmod.ie_param('import_profile', flag_mods_new, modificators_mode);
+        cmd := 'ssh uploader@' || site || ' sh $ARC_PATH/run-import-profile.sh '|| devmod.ie_param('import_profile', flag_mods_new, modificators_mode);
         str_res := public.shell(cmd);
         if (str_res != '') then RAISE 'Modificators cmd=%^result=[%]', cmd, str_res; END IF;
 
@@ -70,7 +71,7 @@ BEGIN
         IF flag_mods_new THEN
             -- cmd := 'ssh uploader@' || site || ' php -f ./get-modificators-ID.php '|| res.out_model_name;
             -- str_res := public.shell(cmd);
-            cmd := 'php -f ./get-modificators-ID.php '|| res.out_model_name;
+            cmd := 'php -f $ARC_PATH/get-modificators-ID.php '|| res.out_model_name;
             res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
             IF res_exec.err_str <> '' THEN RAISE 'Modificators cmd=%^err_str=[%]', cmd, res_exec.err_str; 
             ELSE str_res := res_exec.out_str;
@@ -95,12 +96,12 @@ BEGIN
     IF (res.out_res != '') THEN RAISE 'Prices out_res=%', res.out_res; END IF;
 
     IF flag_prices_new THEN
-        cmd := 'php -f ./del-price-section.php '|| COALESCE(res.out_model_name, '') ;
+        cmd := 'php -f $ARC_PATH/del-price-section.php '|| COALESCE(res.out_model_name, '') ;
         res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
         IF res_exec.err_str <> '' THEN RAISE 'Prices cmd=%^err_str=[%]', cmd, res_exec.err_str; 
         END IF;
     ELSE -- existing prices section
-        cmd := 'php -f ./del-prices-before-import.php '|| COALESCE(res.out_xml_id, '') ;
+        cmd := 'php -f $ARC_PATH/del-prices-before-import.php '|| COALESCE(res.out_xml_id, '') ;
         res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
         IF res_exec.err_str <> '' THEN RAISE 'Prices cmd=%^err_str=[%]', cmd, res_exec.err_str;
         END IF;
@@ -110,7 +111,7 @@ BEGIN
     str_res := public.shell(cmd);
     if (str_res != '') then RAISE 'Prices cmd=%^result=[%]', cmd, str_res; END IF;
 
-    cmd := 'ssh uploader@' || site || ' sh ./run-import-profile.sh '|| devmod.ie_param('import_profile', flag_prices_new, price_mode);
+    cmd := 'ssh uploader@' || site || ' sh $ARC_PATH/run-import-profile.sh '|| devmod.ie_param('import_profile', flag_prices_new, price_mode);
     str_res := public.shell(cmd);
     if (str_res != '') then RAISE 'Prices cmd=%^result=[%]', cmd, str_res; END IF;
 
@@ -119,7 +120,7 @@ BEGIN
         -- fin-info-update будет вызвана в ветке device, т.к. для новых приборов цены должны экспортироваться вместе с прибором
         -- cmd := 'ssh uploader@' || site || ' php -f ./get-prices-ID.php '|| res.out_model_name;
         -- str_res := public.shell(cmd);
-        cmd := '/usr/bin/php -f ./get-prices-ID.php '|| res.out_model_name;
+        cmd := '/usr/bin/php -f $ARC_PATH/get-prices-ID.php '|| res.out_model_name;
         res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
         IF res_exec.err_str <> '' THEN RAISE 'get-prices cmd=%^err_str=[%]', cmd, res_exec.err_str; 
         ELSE str_res := res_exec.out_str;
@@ -142,7 +143,7 @@ BEGIN
             RAISE NOTICE 'Price strFinInfoUpdateArgs=[%]', strFinInfoUpdateArgs;
             RAISE NOTICE 'Price res.out_model_name=[%]', res.out_model_name;
             -- cmd := '/usr/bin/ssh uploader@' || site || ' /usr/bin/php -f ./fin-info-update.php '|| res.out_model_name || strFinInfoUpdateArgs;
-            cmd := '/usr/bin/php ./fin-info-update-params.php -n'|| res.out_model_name || strFinInfoUpdateArgs;
+            cmd := '/usr/bin/php $ARC_PATH/fin-info-update-params.php -n'|| res.out_model_name || strFinInfoUpdateArgs;
             res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
             IF res_exec.err_str <> '' THEN RAISE 'fin-info-update cmd=%^err_str=[%]', cmd, res_exec.err_str; 
             ELSE str_res := res_exec.out_str;
@@ -171,7 +172,7 @@ BEGIN
     str_res := public.shell(cmd);    
     if (str_res != '') then RAISE 'Device cmd=%^result=[%]', cmd, str_res; END IF;
 
-    cmd := '/usr/bin/ssh uploader@' || site || ' sh ./run-import-profile.sh '|| devmod.ie_param('import_profile', flag_dev_new, device_mode);
+    cmd := '/usr/bin/ssh uploader@' || site || ' sh $ARC_PATH/run-import-profile.sh '|| devmod.ie_param('import_profile', flag_dev_new, device_mode);
     RAISE NOTICE 'Device import cmd=[%]', cmd;
     str_res := public.shell(cmd);
     if (str_res != '') then RAISE 'Device cmd=%^result=[%]', cmd, str_res; END IF;
@@ -189,7 +190,7 @@ BEGIN
     RAISE NOTICE 'Device strFinInfoUpdateArgs=[%]', strFinInfoUpdateArgs;
     RAISE NOTICE 'Device res.out_model_name=[%]', res.out_model_name;
     -- cmd := '/usr/bin/ssh uploader@' || site || ' /usr/bin/php -f ./fin-info-update.php '|| res.out_model_name || strFinInfoUpdateArgs;
-    cmd := '/usr/bin/php ./fin-info-update-params.php -n'|| res.out_model_name || strFinInfoUpdateArgs;
+    cmd := '/usr/bin/php $ARC_PATH/fin-info-update-params.php -n'|| res.out_model_name || strFinInfoUpdateArgs;
 
     RAISE NOTICE 'Device fin-info-update-params cmd=[%]', cmd;
     -- str_res := public.shell(cmd);
