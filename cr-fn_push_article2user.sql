@@ -11,7 +11,7 @@ $BODY$ DECLARE
   a_id INTEGER;
 BEGIN
     WITH inserted AS (
-        INSERT INTO "Статьи"("Содержание", "Автор") VALUES (article, author_id)
+        INSERT INTO "Статьи"("Содержание", "ДатаСтатьи", "Автор") VALUES (article, clock_timestamp(), author_id)
         RETURNING "НомерСтатьи"
     )
  
