@@ -95,7 +95,7 @@ BEGIN
      -- SELECT * INTO debug_rec FROM csv_tmp;
      -- RAISE NOTICE 'csv_tmp=%', debug_rec ;
      SELECT mk_csv('SELECT * FROM ' ||csv_tmp_name, out_csv) INTO out_res;
-     EXECUTE 'DROP TABLE csv_tmp'; 
+     EXECUTE 'DROP TABLE ' ||csv_tmp_name || ';' ; 
   END IF; -- flg_single
 END$BODY$
   LANGUAGE plpgsql VOLATILE
