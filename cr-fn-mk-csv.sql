@@ -46,6 +46,11 @@ BEGIN
     -- for devmod.ie_param
     SELECT ie_xml_id, ip_prop674, ip_prop675, mod_single INTO loc_xml_id, loc_prop674, loc_prop675, loc_mod_single FROM devmod.device d
     WHERE d.dev_id = exp.dev_id AND d.version_num = exp.exp_version_num;
+    IF NOT FOUND THEN 
+       RAISE EXCEPTION 'Не найден прибор dev_id=%, version_num=%', exp.dev_id, exp.exp_version_num ;
+       RETURN;    -- STOP
+    END IF;
+    
     IF loc_xml_id IS NULL THEN flag_dev_new := TRUE; ELSE flag_dev_new := FALSE; END IF;
     IF loc_prop674 IS NULL THEN flag_prices_new := TRUE; ELSE flag_prices_new := FALSE; END IF;
     IF loc_prop675 IS NULL THEN flag_mods_new := TRUE; ELSE flag_mods_new := FALSE; END IF;
