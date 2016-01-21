@@ -31,17 +31,14 @@ $BODY$DECLARE
   strCatGroups VARCHAR;
   good_export_str VARCHAR;
 BEGIN
-    -- site := site();
     SELECT * INTO exp FROM devmod.bx_export_log WHERE exp_id = aexp_id FOR UPDATE;
     -- IF exp IS NULL THEN RAISE 'exp_id=% not found in devmod.bx_export_log', aexp_id ; RETURN; END IF;
     IF NOT found THEN RAISE 'exp_id=% not found in devmod.bx_export_log', aexp_id ; RETURN; END IF;
     site := exp.exp_site;
-    /*
-    IF site = 'kipspb.ru' THEN -- DEBUG
-        RAISE 'Запрещённый для отладки сайт=%', site;
+    IF exp.exp_version_num <> 1 AND site = 'kipspb.ru' THEN
+        RAISE 'Запрещённая комбинация version_num=% и site=%', exp.exp_version_num, site;
         RETURN;
     END IF;
-    */
     
     -- for devmod.ie_param
     SELECT ie_xml_id, ip_prop674, ip_prop675, mod_single INTO loc_xml_id, loc_prop674, loc_prop675, loc_mod_single FROM devmod.device d
