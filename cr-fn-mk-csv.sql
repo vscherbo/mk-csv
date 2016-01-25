@@ -30,6 +30,8 @@ $BODY$DECLARE
   loc_prop675 INTEGER; -- Модификаторы прибора
   strCatGroups VARCHAR;
   good_export_str VARCHAR;
+  do_update_flag BOOLEAN;
+  upd_statements VARCHAR[];
 BEGIN
     SELECT * INTO exp FROM devmod.bx_export_log WHERE exp_id = aexp_id FOR UPDATE;
     -- IF exp IS NULL THEN RAISE 'exp_id=% not found in devmod.bx_export_log', aexp_id ; RETURN; END IF;
@@ -190,27 +192,29 @@ BEGIN
     strFinInfoUpdateArgs := ' ';
     IF (mods_section_id IS NOT NULL) THEN strFinInfoUpdateArgs := strFinInfoUpdateArgs || ' -m' || mods_section_id::VARCHAR; END IF;
     IF (price_section_id IS NOT NULL) THEN strFinInfoUpdateArgs := strFinInfoUpdateArgs || ' -p' || price_section_id::VARCHAR; END IF;
-    RAISE NOTICE 'Device strFinInfoUpdateArgs=[%]', strFinInfoUpdateArgs;
-    RAISE NOTICE 'Device res.out_model_name=[%]', res.out_model_name;
-    -- cmd := '/usr/bin/ssh uploader@' || site || ' /usr/bin/php -f ./fin-info-update.php '|| res.out_model_name || strFinInfoUpdateArgs;
-    cmd := '/usr/bin/php $ARC_PATH/fin-info-update-params.php -n'|| res.out_model_name || strFinInfoUpdateArgs;
+    IF strFinInfoUpdateArgs <> ' ' THEN
+        RAISE NOTICE 'Device strFinInfoUpdateArgs=[%]', strFinInfoUpdateArgs;
+        RAISE NOTICE 'Device res.out_model_name=[%]', res.out_model_name;
+        -- cmd := '/usr/bin/ssh uploader@' || site || ' /usr/bin/php -f ./fin-info-update.php '|| res.out_model_name || strFinInfoUpdateArgs;
+        cmd := '/usr/bin/php $ARC_PATH/fin-info-update-params.php -n'|| res.out_model_name || strFinInfoUpdateArgs;
 
-    RAISE NOTICE 'Device fin-info-update-params cmd=[%]', cmd;
-    -- str_res := public.shell(cmd);
-    res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
-    IF res_exec.err_str <> '' THEN RAISE 'fin-info-update cmd=%^err_str=[%]', cmd, res_exec.err_str; 
-    ELSE str_res := res_exec.out_str;
-    END IF;
-    /* 
-    SELECT * INTO str_res, err_str FROM public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
-    IF err_str <> '' THEN RAISE 'Device cmd=%^err_str=[%]', cmd, err_str; 
-    END IF; */
-    BEGIN
-        dev_xml_id := cast(str_res as integer);
-        exception WHEN OTHERS 
-            THEN RAISE 'Device cmd=%^result=[%]', cmd, str_res; 
-    END;
-    RAISE NOTICE 'dev_xml_id=%', dev_xml_id;
+        RAISE NOTICE 'Device fin-info-update-params cmd=[%]', cmd;
+        -- str_res := public.shell(cmd);
+        res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
+        IF res_exec.err_str <> '' THEN RAISE 'fin-info-update cmd=%^err_str=[%]', cmd, res_exec.err_str; 
+        ELSE str_res := res_exec.out_str;
+        END IF;
+        /* 
+        SELECT * INTO str_res, err_str FROM public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
+        IF err_str <> '' THEN RAISE 'Device cmd=%^err_str=[%]', cmd, err_str; 
+        END IF; */
+        BEGIN
+            dev_xml_id := cast(str_res as integer);
+            exception WHEN OTHERS 
+                THEN RAISE 'Device cmd=%^result=[%]', cmd, str_res; 
+        END;
+        RAISE NOTICE 'dev_xml_id=%', dev_xml_id;
+    END IF; -- strFinInfoUpdateArgs <> ' '
 
     -- TODO single UPDATE
     IF flag_dev_new THEN
@@ -226,7 +230,14 @@ BEGIN
     IF flag_prices_new THEN
         UPDATE devmod.device SET  ip_prop674 = price_section_id
             WHERE exp.dev_id = dev_id AND exp.exp_version_num = version_num;
-    END IF; -- flag_dev_new
+    END IF; -- flag_prices_new
+
+/*
+    IF do_update_flag THEN
+        UPDATE devmod.device SET  ip_prop674 = price_section_id
+            WHERE exp.dev_id = dev_id AND exp.exp_version_num = version_num;
+    END IF; -- do_update_flag
+*/
         
     exp.exp_csv_status := COALESCE( (exp.exp_csv_status::BIT(3) | device_mode)::INTEGER, device_mode::INTEGER);
     -- exp.exp_csv_status := COALESCE( (exp.exp_csv_status | device_mode), device_mode);
