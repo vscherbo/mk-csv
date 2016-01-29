@@ -8,10 +8,10 @@ $BODY$
 DECLARE
   wrong_op VARCHAR;
 BEGIN
-   wrong_op := E'\nie_xml_id(OLD/NEW)=' || OLD.ie_xml_id || '/' || COALESCE(NEW.ie_xml_id::VARCHAR, 'NULL')
-               || E'\nie_xml_id_dt(OLD/NEW)=' || OLD.ie_xml_id_dt || '/' || COALESCE(NEW.ie_xml_id_dt::VARCHAR, 'NULL')
-               || E'\nip_prop674(OLD/NEW)=' || OLD.ip_prop674 || '/' || COALESCE(NEW.ip_prop674::VARCHAR, 'NULL')
-               || E'\nip_prop675(OLD/NEW)=' || OLD.ip_prop675 || '/' || COALESCE(NEW.ip_prop675::VARCHAR, 'NULL') 
+   wrong_op := E'\nie_xml_id(OLD/NEW)=' || COALESCE(OLD.ie_xml_id::VARCHAR, 'NULL') || '/' || COALESCE(NEW.ie_xml_id::VARCHAR, 'NULL')
+               || E'\nie_xml_id_dt(OLD/NEW)=' || COALESCE(OLD.ie_xml_id_dt::VARCHAR, 'NULL') || '/' || COALESCE(NEW.ie_xml_id_dt::VARCHAR, 'NULL')
+               || E'\nip_prop674(OLD/NEW)=' || COALESCE(OLD.ip_prop674::VARCHAR, 'NULL') || '/' || COALESCE(NEW.ip_prop674::VARCHAR, 'NULL')
+               || E'\nip_prop675(OLD/NEW)=' || COALESCE(OLD.ip_prop675::VARCHAR, 'NULL') || '/' || COALESCE(NEW.ip_prop675::VARCHAR, 'NULL') 
                ;
    RAISE EXCEPTION E'Попытка обновить версию не ''в разработке'' %',  wrong_op;
    RETURN NEW;   
