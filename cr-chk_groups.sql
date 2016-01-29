@@ -16,19 +16,8 @@ DECLARE
   res RECORD;
 BEGIN
    devicename := quote_ident(devicename);
-   IF (site = 'kipspb-fl.arc.world') THEN
-      cmd := 'php -f ./chk-groups.php ' || devicename;
-   ELSIF (site = 'kipspb.ru') THEN
-      cmd := 'php -f ./bx-uploader/chk-groups.php ' || devicename;
-   ELSE
-      res := ('Недопустимое название сайта: ' || site, '' );
-      cmd := 'none';
-   END IF;
-
-   IF cmd != 'none' THEN
-      res := public.exec_paramiko(site, 22, 'uploader', cmd);
-   END IF;
-
+   cmd := 'php -f $ARC_PATH/chk-groups.php ' || devicename;
+   res := public.exec_paramiko(site, 22, 'uploader', cmd);
    RETURN res;
 END;$BODY$
   LANGUAGE plpgsql VOLATILE
