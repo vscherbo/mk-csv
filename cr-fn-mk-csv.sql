@@ -30,14 +30,17 @@ $BODY$DECLARE
   loc_prop675 INTEGER; -- Модификаторы прибора
   strCatGroups VARCHAR;
   good_export_str VARCHAR;
-  do_update_flag BOOLEAN;
-  upd_statements VARCHAR[];
+  upd_str VARCHAR;
 BEGIN
     SELECT * INTO exp FROM devmod.bx_export_log WHERE exp_id = aexp_id FOR UPDATE;
     -- IF exp IS NULL THEN RAISE 'exp_id=% not found in devmod.bx_export_log', aexp_id ; RETURN; END IF;
     IF NOT found THEN RAISE 'exp_id=% not found in devmod.bx_export_log', aexp_id ; RETURN; END IF;
     site := exp.exp_site;
     IF exp.exp_version_num <> 1 AND site = 'kipspb.ru' THEN
+        RAISE 'Запрещённая комбинация version_num=% и site=%', exp.exp_version_num, site;
+        RETURN;
+    END IF;
+    IF exp.exp_version_num <> 0 AND site = 'kipspb-fl.arc.world' THEN
         RAISE 'Запрещённая комбинация version_num=% и site=%', exp.exp_version_num, site;
         RETURN;
     END IF;
@@ -150,13 +153,13 @@ BEGIN
             -- cmd := '/usr/bin/ssh uploader@' || site || ' /usr/bin/php -f ./fin-info-update.php '|| res.out_model_name || strFinInfoUpdateArgs;
             cmd := '/usr/bin/php $ARC_PATH/fin-info-update-params.php -n'|| res.out_model_name || strFinInfoUpdateArgs ;
             res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
-            IF res_exec.err_str <> '' THEN RAISE 'fin-info-update cmd=%^err_str=[%]', cmd, res_exec.err_str; 
+            IF res_exec.err_str <> '' THEN RAISE 'just prices fin-info-update cmd=%^err_str=[%]', cmd, res_exec.err_str; 
             ELSE str_res := res_exec.out_str;
             END IF;
             BEGIN
                 dev_xml_id := cast(str_res as integer);
                 exception WHEN OTHERS 
-                    THEN RAISE 'fin-info-update cmd=%^result=[%]', cmd, str_res; 
+                    THEN RAISE 'just prices fin-info-update cmd=%^result=[%]', cmd, str_res; 
             END;
         END IF; -- если device не будет обновляться
     END IF; -- flag_prices_new
@@ -190,58 +193,92 @@ BEGIN
     */
     
     strFinInfoUpdateArgs := ' ';
-    IF (mods_section_id IS NOT NULL) THEN strFinInfoUpdateArgs := strFinInfoUpdateArgs || ' -m' || mods_section_id::VARCHAR; END IF;
-    IF (price_section_id IS NOT NULL) THEN strFinInfoUpdateArgs := strFinInfoUpdateArgs || ' -p' || price_section_id::VARCHAR; END IF;
-    IF strFinInfoUpdateArgs <> ' ' THEN
-        RAISE NOTICE 'Device strFinInfoUpdateArgs=[%]', strFinInfoUpdateArgs;
-        RAISE NOTICE 'Device res.out_model_name=[%]', res.out_model_name;
-        -- cmd := '/usr/bin/ssh uploader@' || site || ' /usr/bin/php -f ./fin-info-update.php '|| res.out_model_name || strFinInfoUpdateArgs;
-        cmd := '/usr/bin/php $ARC_PATH/fin-info-update-params.php -n'|| res.out_model_name || strFinInfoUpdateArgs;
+    IF (mods_section_id IS NOT NULL)
+    THEN 
+       strFinInfoUpdateArgs := strFinInfoUpdateArgs || ' -m' || mods_section_id::VARCHAR;
+    ELSIF (loc_prop675 IS NOT NULL) THEN
+       strFinInfoUpdateArgs := strFinInfoUpdateArgs || ' -m' || loc_prop675::VARCHAR;
+    END IF;
+    IF (price_section_id IS NOT NULL)
+    THEN 
+       strFinInfoUpdateArgs := strFinInfoUpdateArgs || ' -p' || price_section_id::VARCHAR;
+    ELSIF (loc_prop674 IS NOT NULL) THEN
+       strFinInfoUpdateArgs := strFinInfoUpdateArgs || ' -p' || loc_prop674::VARCHAR;
+    END IF;
+    
+    RAISE NOTICE 'Device strFinInfoUpdateArgs=[%]', strFinInfoUpdateArgs;
+    RAISE NOTICE 'Device res.out_model_name=[%]', res.out_model_name;
+    cmd := '/usr/bin/php $ARC_PATH/fin-info-update-params.php';
+    IF flag_dev_new THEN 
+       cmd := cmd ||  ' -n'|| res.out_model_name || strFinInfoUpdateArgs;
+    ELSE
+       cmd := cmd ||  ' -i'|| loc_xml_id || strFinInfoUpdateArgs;
+    END IF;
 
-        RAISE NOTICE 'Device fin-info-update-params cmd=[%]', cmd;
-        -- str_res := public.shell(cmd);
-        res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
-        IF res_exec.err_str <> '' THEN RAISE 'fin-info-update cmd=%^err_str=[%]', cmd, res_exec.err_str; 
-        ELSE str_res := res_exec.out_str;
-        END IF;
-        /* 
-        SELECT * INTO str_res, err_str FROM public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
-        IF err_str <> '' THEN RAISE 'Device cmd=%^err_str=[%]', cmd, err_str; 
-        END IF; */
-        BEGIN
-            dev_xml_id := cast(str_res as integer);
-            exception WHEN OTHERS 
-                THEN RAISE 'Device cmd=%^result=[%]', cmd, str_res; 
-        END;
-        RAISE NOTICE 'dev_xml_id=%', dev_xml_id;
-    END IF; -- strFinInfoUpdateArgs <> ' '
+    IF cmd IS NULL THEN RAISE 'Device fin-info-update-params cmd IS NULL'; END IF;
+    RAISE NOTICE 'Device fin-info-update-params cmd=[%]', cmd;
+    res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
+    IF res_exec.err_str <> '' THEN RAISE 'fin-info-update cmd=%^err_str=[%]', cmd, res_exec.err_str; 
+    ELSE str_res := res_exec.out_str;
+    END IF;
+    /* 
+    SELECT * INTO str_res, err_str FROM public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
+    IF err_str <> '' THEN RAISE 'Device cmd=%^err_str=[%]', cmd, err_str; 
+    END IF; */
+    BEGIN
+        dev_xml_id := cast(str_res as integer);
+        exception WHEN OTHERS 
+            THEN RAISE 'Device cmd=%^result=[%]', cmd, str_res; 
+    END;
+    RAISE NOTICE 'dev_xml_id=%', dev_xml_id;
+    
 
-    -- TODO single UPDATE
-    IF flag_dev_new THEN
-        UPDATE devmod.device SET  ie_xml_id = dev_xml_id, ie_xml_id_dt = now()
-            WHERE exp.dev_id = dev_id AND exp.exp_version_num = version_num;
+    upd_str := '';
+    IF flag_dev_new AND (exp.exp_mod::BIT(3) & device_mode = device_mode) -- xml_id is NULL и есть бит device_mode
+    THEN
+       upd_str := upd_str || 'ie_xml_id = '||dev_xml_id ||', ie_xml_id_dt = now(), ';
+        -- UPDATE devmod.device SET  ie_xml_id = dev_xml_id, ie_xml_id_dt = now()
+            -- WHERE exp.dev_id = dev_id AND exp.exp_version_num = version_num;
     END IF; -- flag_dev_new
 
-    IF flag_mods_new THEN
-        UPDATE devmod.device SET  ip_prop675 = mods_section_id
-            WHERE exp.dev_id = dev_id AND exp.exp_version_num = version_num;
+    IF flag_mods_new AND (exp.exp_mod::BIT(3) & modificators_mode = modificators_mode) -- prop675 is NULL и есть бит modificators_mode
+    THEN
+       upd_str := upd_str || 'ip_prop675 = ' || mods_section_id || ', ';
+       --UPDATE devmod.device SET  ip_prop675 = mods_section_id
+         -- WHERE exp.dev_id = dev_id AND exp.exp_version_num = version_num;
     END IF; -- flag_mods_new
 
-    IF flag_prices_new THEN
-        UPDATE devmod.device SET  ip_prop674 = price_section_id
-            WHERE exp.dev_id = dev_id AND exp.exp_version_num = version_num;
+    IF flag_prices_new AND (exp.exp_mod::BIT(3) & price_mode = price_mode) -- prop674 is NULL и есть бит price_mode
+    THEN
+       upd_str := upd_str || 'ip_prop674 = ' || price_section_id || ', ';
+       --UPDATE devmod.device SET  ip_prop674 = price_section_id
+           -- WHERE exp.dev_id = dev_id AND exp.exp_version_num = version_num;
     END IF; -- flag_prices_new
 
-/*
-    IF do_update_flag THEN
-        UPDATE devmod.device SET  ip_prop674 = price_section_id
-            WHERE exp.dev_id = dev_id AND exp.exp_version_num = version_num;
+/**/
+    RAISE NOTICE 'upd_str=%', upd_str;
+    IF char_length(upd_str)>0 THEN
+       -- delete last comma
+        upd_str := 'UPDATE devmod.device SET ' || TRIM(trailing ', ' from upd_str) || 
+                   ' WHERE dev_id = ' || exp.dev_id || ' AND version_num = ' || exp.exp_version_num || ';';
+        RAISE NOTICE 'UPDATE device=%', upd_str;
+        EXECUTE upd_str;
     END IF; -- do_update_flag
-*/
+/**/
         
     exp.exp_csv_status := COALESCE( (exp.exp_csv_status::BIT(3) | device_mode)::INTEGER, device_mode::INTEGER);
     -- exp.exp_csv_status := COALESCE( (exp.exp_csv_status | device_mode), device_mode);
   END IF; -- device
+
+  -- DEBUG flush memcache
+  /*
+  IF 'kipspb-fl.arc.world' = site THEN
+     res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, '/usr/bin/php $ARC_PATH/test-flush-memcache.php');
+     IF res_exec.err_str <> '' THEN RAISE 'flush-memcache cmd=%^err_str=[%]', cmd, res_exec.err_str; 
+     ELSE str_res := res_exec.out_str;
+     END IF;
+  END IF;
+  */
 
     -- put an Article about finish of export
   good_export_str := 'Завершён экспорт модели ' || res.out_model_name || ' на сайт ' || site || ' (exp_id='||aexp_id|| ')' ;
