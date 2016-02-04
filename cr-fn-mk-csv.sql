@@ -1,4 +1,5 @@
 -- Function: devmod.fn_mk_csv(integer)
+-- Function: devmod.fn_mk_csv(integer)
 
 -- DROP FUNCTION devmod.fn_mk_csv(integer);
 
@@ -79,7 +80,7 @@ BEGIN
         IF flag_mods_new THEN
             -- cmd := 'ssh uploader@' || site || ' php -f ./get-modificators-ID.php '|| res.out_model_name;
             -- str_res := public.shell(cmd);
-            cmd := 'php -f $ARC_PATH/get-modificators-ID.php '|| res.out_model_name;
+            cmd := E'php -f $ARC_PATH/get-modificators-ID.php '|| res.out_model_name;
             res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
             IF res_exec.err_str <> '' THEN RAISE 'Modificators cmd=%^err_str=[%]', cmd, res_exec.err_str; 
             ELSE str_res := res_exec.out_str;
@@ -104,12 +105,12 @@ BEGIN
     IF (res.out_res != '') THEN RAISE 'Prices out_res=%', res.out_res; END IF;
 
     IF flag_prices_new THEN
-        cmd := 'php -f $ARC_PATH/del-price-section.php '|| COALESCE(res.out_model_name, '');
+        cmd := E'php -f $ARC_PATH/del-price-section.php '|| COALESCE(res.out_model_name, '');
         res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
         IF res_exec.err_str <> '' THEN RAISE 'Prices cmd=%^err_str=[%]', cmd, res_exec.err_str; 
         END IF;
     ELSE -- existing prices section
-        cmd := 'php -f $ARC_PATH/del-prices-before-import.php '|| COALESCE(res.out_xml_id, '');
+        cmd := E'php -f $ARC_PATH/del-prices-before-import.php '|| COALESCE(res.out_xml_id, '');
         res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
         IF res_exec.err_str <> '' THEN RAISE 'Prices cmd=%^err_str=[%]', cmd, res_exec.err_str;
         END IF;
@@ -128,7 +129,7 @@ BEGIN
         -- fin-info-update будет вызвана в ветке device, т.к. для новых приборов цены должны экспортироваться вместе с прибором
         -- cmd := 'ssh uploader@' || site || ' php -f ./get-prices-ID.php '|| res.out_model_name;
         -- str_res := public.shell(cmd);
-        cmd := '/usr/bin/php -f $ARC_PATH/get-prices-ID.php '|| res.out_model_name ;
+        cmd := E'php -f $ARC_PATH/get-prices-ID.php '|| res.out_model_name ;
         res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
         IF res_exec.err_str <> '' THEN RAISE 'get-prices cmd=%^err_str=[%]', cmd, res_exec.err_str; 
         ELSE str_res := res_exec.out_str;
@@ -151,7 +152,7 @@ BEGIN
             RAISE NOTICE 'Price strFinInfoUpdateArgs=[%]', strFinInfoUpdateArgs;
             RAISE NOTICE 'Price res.out_model_name=[%]', res.out_model_name;
             -- cmd := '/usr/bin/ssh uploader@' || site || ' /usr/bin/php -f ./fin-info-update.php '|| res.out_model_name || strFinInfoUpdateArgs;
-            cmd := '/usr/bin/php $ARC_PATH/fin-info-update-params.php -n'|| res.out_model_name || strFinInfoUpdateArgs ;
+            cmd := E'php $ARC_PATH/fin-info-update-params.php -n'|| res.out_model_name || strFinInfoUpdateArgs ;
             res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
             IF res_exec.err_str <> '' THEN RAISE 'just prices fin-info-update cmd=%^err_str=[%]', cmd, res_exec.err_str; 
             ELSE str_res := res_exec.out_str;
@@ -208,7 +209,7 @@ BEGIN
     
     RAISE NOTICE 'Device strFinInfoUpdateArgs=[%]', strFinInfoUpdateArgs;
     RAISE NOTICE 'Device res.out_model_name=[%]', res.out_model_name;
-    cmd := '/usr/bin/php $ARC_PATH/fin-info-update-params.php';
+    cmd := E'php $ARC_PATH/fin-info-update-params.php';
     IF flag_dev_new THEN 
        cmd := cmd ||  ' -n'|| res.out_model_name || strFinInfoUpdateArgs;
     ELSE
@@ -273,10 +274,12 @@ BEGIN
   -- DEBUG flush memcache
   /*
   IF 'kipspb-fl.arc.world' = site THEN
+  */
      res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, '/usr/bin/php $ARC_PATH/test-flush-memcache.php');
      IF res_exec.err_str <> '' THEN RAISE 'flush-memcache cmd=%^err_str=[%]', cmd, res_exec.err_str; 
      ELSE str_res := res_exec.out_str;
      END IF;
+  /*
   END IF;
   */
 
