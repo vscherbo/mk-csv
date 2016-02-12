@@ -34,7 +34,6 @@ $BODY$DECLARE
   upd_str VARCHAR;
 BEGIN
     SELECT * INTO exp FROM devmod.bx_export_log WHERE exp_id = aexp_id FOR UPDATE;
-    -- IF exp IS NULL THEN RAISE 'exp_id=% not found in devmod.bx_export_log', aexp_id ; RETURN; END IF;
     IF NOT found THEN RAISE 'exp_id=% not found in devmod.bx_export_log', aexp_id ; RETURN; END IF;
     site := exp.exp_site;
     IF exp.exp_version_num <> 1 AND site = 'kipspb.ru' THEN
@@ -45,6 +44,12 @@ BEGIN
         RAISE 'Запрещённая комбинация version_num=% и site=%', exp.exp_version_num, site;
         RETURN;
     END IF;
+
+    /** В триггере bx_export_log_BU:
+     1. в device отсутствует прибор с exp.dev_id и exp.exp_version_num
+     2. exp.exp_mod не выставлен 1-бит, а device.ie_xml_id IS NULL
+     device.ie_xml_id IS NULL     => exp_mod IN (1, 7)
+     device.ie_xml_id IS NOT NULL => exp_mod IN (1, 4, 6, 7)
     
     -- for devmod.ie_param
     SELECT ie_xml_id, ip_prop674, ip_prop675, mod_single INTO loc_xml_id, loc_prop674, loc_prop675, loc_mod_single FROM devmod.device d
@@ -53,6 +58,7 @@ BEGIN
        RAISE EXCEPTION 'Не найден прибор dev_id=%, version_num=%', exp.dev_id, exp.exp_version_num ;
        RETURN;    -- STOP
     END IF;
+    **/  
     
     IF loc_xml_id IS NULL THEN flag_dev_new := TRUE; ELSE flag_dev_new := FALSE; END IF;
     IF loc_prop674 IS NULL THEN flag_prices_new := TRUE; ELSE flag_prices_new := FALSE; END IF;
