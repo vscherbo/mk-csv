@@ -81,6 +81,7 @@ def do_listen(a_pg_timeout):
                 except psycopg2.Error, exc:
                     logging.warning("%s _excecption_UPDATE bx_export_log=%", parser.prog, str(exc))
                     # print("% _exc UPDATE bx_export_log=%", parser.prog, exc)
+            conn.commit()
             logging.info("Finish fn_mk_csv")
             # print(str(datetime.now()) + " Finish fn_mk_csv")
 # End of do_listen
