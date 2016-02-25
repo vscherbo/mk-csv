@@ -50,7 +50,7 @@ BEGIN
      2. exp.exp_mod не выставлен 1-бит, а device.ie_xml_id IS NULL
      device.ie_xml_id IS NULL     => exp_mod IN (1, 7)
      device.ie_xml_id IS NOT NULL => exp_mod IN (1, 4, 6, 7)
-    
+    **/
     -- for devmod.ie_param
     SELECT ie_xml_id, ip_prop674, ip_prop675, mod_single INTO loc_xml_id, loc_prop674, loc_prop675, loc_mod_single FROM devmod.device d
     WHERE d.dev_id = exp.dev_id AND d.version_num = exp.exp_version_num;
@@ -58,7 +58,6 @@ BEGIN
        RAISE EXCEPTION 'Не найден прибор dev_id=%, version_num=%', exp.dev_id, exp.exp_version_num ;
        RETURN;    -- STOP
     END IF;
-    **/  
     
     IF loc_xml_id IS NULL THEN flag_dev_new := TRUE; ELSE flag_dev_new := FALSE; END IF;
     IF loc_prop674 IS NULL THEN flag_prices_new := TRUE; ELSE flag_prices_new := FALSE; END IF;
@@ -278,16 +277,16 @@ BEGIN
   END IF; -- device
 
   -- DEBUG flush memcache
-  /*
-  IF 'kipspb-fl.arc.world' = site THEN
-  */
+  /**
+  IF 'kipspb.ru' = site THEN
+  **/
      res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, '/usr/bin/php $ARC_PATH/test-flush-memcache.php');
      IF res_exec.err_str <> '' THEN RAISE 'flush-memcache cmd=%^err_str=[%]', cmd, res_exec.err_str; 
      ELSE str_res := res_exec.out_str;
      END IF;
-  /*
+  /**
   END IF;
-  */
+  **/
 
     -- put an Article about finish of export
   good_export_str := 'Завершён экспорт модели ' || res.out_model_name || ' на сайт ' || site || ' (exp_id='||aexp_id|| ')' ;
