@@ -5,6 +5,7 @@
 CREATE OR REPLACE VIEW vwsyncdev AS 
  SELECT m."КодСодержания",
     d.dev_name,
+    d."Поставщик",
     m.mod_id
    FROM devmod.modifications m,
     devmod.device d
@@ -12,6 +13,7 @@ CREATE OR REPLACE VIEW vwsyncdev AS
 UNION
  SELECT s."КодСодержания",
     d.ie_name AS dev_name,
+    ( SELECT NULL::integer AS int4) AS "Поставщик",
     ( SELECT NULL::character varying AS "varchar") AS mod_id
    FROM dev_sinccat_arcbx s,
     devmod.bx_dev d
