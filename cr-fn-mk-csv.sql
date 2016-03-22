@@ -1,5 +1,4 @@
 -- Function: devmod.fn_mk_csv(integer)
--- Function: devmod.fn_mk_csv(integer)
 
 -- DROP FUNCTION devmod.fn_mk_csv(integer);
 
