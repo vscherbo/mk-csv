@@ -10,6 +10,7 @@ CREATE OR REPLACE FUNCTION devmod.set_mod_timedelivery(
 $BODY$
 DECLARE cmd character varying;
   res_exec RECORD;
+  ret_str VARCHAR := '';
 BEGIN
     cmd := E'php $ARC_PATH/update-single-modification.php';
     cmd := cmd ||  ' -m'|| mod_code::VARCHAR;
@@ -27,9 +28,19 @@ BEGIN
     IF res_exec.err_str <> ''
     THEN 
        RAISE 'update-single-modification cmd=%^err_str=[%]', cmd, res_exec.err_str; 
+       ret_str := res_exec.err_str;
+    ELSE
+       res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, '/usr/bin/php $ARC_PATH/test-flush-memcache.php');
+       IF res_exec.err_str <> '' THEN 
+          RAISE 'flush-memcache cmd=%^err_str=[%]', cmd, res_exec.err_str; 
+          ret_str := res_exec.err_str;
+       ELSE 
+          ret_str := res_exec.out_str;
+       END IF;
     END IF;
     
-    return res_exec.err_str;
+    return ret_str;
+    -- res_exec.err_str;
 END;$BODY$
   LANGUAGE plpgsql VOLATILE
   COST 100;
