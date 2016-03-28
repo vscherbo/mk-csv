@@ -98,12 +98,14 @@ def do_set_single(notify):
         logging.warning("wrong stock_status={%s}, time_delivery = None", stock_status)
 
     if time_delivery != None:
-        # TODO - choose site
-        site = 'kipspb-fl.arc.world'
+        if ('vm-pg' == args.host) or ('vm-pg.arc.world' == args.host):
+            site = 'kipspb.ru'
+        else:
+            site = 'kipspb-fl.arc.world'
         logging.info("before call devmod.set_mod_timedelivery([%s], [%s], [%s])", site, str_modid, time_delivery)
         curs.callproc('devmod.set_mod_timedelivery', [site, str_modid, time_delivery])
     else:
-        logging.info("? time_delivery == None")
+        logging.warning("? time_delivery == None")
     logging.info("Finish set_mod_timedelivery")
 
 def do_listen(a_pg_timeout):
