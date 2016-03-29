@@ -13,6 +13,8 @@ BEGIN
         AND version_num = 1;
   IF FOUND THEN
      EXECUTE pg_notify('do_single', loc_mod_id || '^' || NEW.stock_status::VARCHAR);
+  ELSE -- debug
+     RAISE NOTICE 'Не найдена запись в devmod.modifications с КС=% и version_num=1', NEW."КодСодержания";
   END IF;
   RETURN NEW;
 END;$BODY$
