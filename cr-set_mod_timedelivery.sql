@@ -1,10 +1,10 @@
 -- Function: devmod.set_mod_timedelivery(character varying, bigint, character varying)
 
--- DROP FUNCTION devmod.set_mod_timedelivery(character varying, bigint, character varying);
+-- DROP FUNCTION devmod.set_mod_timedelivery(character varying, character varying, character varying);
 
 CREATE OR REPLACE FUNCTION devmod.set_mod_timedelivery(
     site character varying,
-    mod_code bigint,
+    mod_code character varying,
     mod_timedelivery character varying)
   RETURNS character varying AS
 $BODY$
@@ -14,7 +14,7 @@ DECLARE cmd character varying;
 BEGIN
     cmd := E'php $ARC_PATH/update-single-modification.php';
     cmd := cmd ||  ' -m'|| mod_code::VARCHAR;
-    cmd := cmd ||  ' -t ''' || mod_timedelivery || '''' ;
+    cmd := cmd ||  ' -t''' || mod_timedelivery || '''' ;
     
     IF cmd IS NULL 
     THEN 
