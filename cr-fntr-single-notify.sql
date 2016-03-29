@@ -11,7 +11,9 @@ BEGIN
         FROM devmod.modifications
         WHERE NEW."КодСодержания" = "КодСодержания"
         AND version_num = 1;
-  EXECUTE pg_notify('do_single', loc_mod_id || '^' || NEW.stock_status::VARCHAR);
+  IF FOUND THEN
+     EXECUTE pg_notify('do_single', loc_mod_id || '^' || NEW.stock_status::VARCHAR);
+  END IF;
   RETURN NEW;
 END;$BODY$
   LANGUAGE plpgsql VOLATILE
