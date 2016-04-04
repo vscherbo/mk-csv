@@ -1,4 +1,4 @@
-﻿
+--Select * FROM arc_energo.fn_set_stock_status(117101002, 't') f(cur integer, clc integer )
 -- Function: fn_set_stock_status(integer)
 
 -- DROP FUNCTION fn_set_stock_status(integer, boolean);
@@ -15,20 +15,24 @@ $BODY$DECLARE
   wh_reserve  double precision;
   go_free NUMERIC;
   go_reserve double precision;
-  dev_sinc boolean; 
+  ie_name_modification character varying;
+  -- dev_sinc boolean; 
 BEGIN
    -- RAISE NOTICE  'Код Содержания =%', ks;
    
    -- получаем текущий статус склада
-SELECT s.КодПрибора Is Null INTO dev_sinc FROM arc_energo.Содержание s 
-WHERE КодСодержания = ks;
+SELECT d.dev_name ||': '|| m.mod_id::character varying INTO ie_name_modification FROM devmod.device d JOIN devmod.modifications m 
+ON (d.dev_id = m.dev_id  AND d.version_num = m.version_num)
+WHERE m.КодСодержания = ks AND m.version_num =1;
+--SELECT s.КодПрибора Is Null INTO dev_sinc FROM arc_energo.Содержание s 
+--WHERE КодСодержания = ks;
 
-IF dev_sinc THEN 	
-	RAISE NOTICE  'Прибор синхронизирован';
+IF FOUND THEN 	
+	-- RAISE NOTICE  'Прибор синхронизирован';
    
 	SELECT coalesce(s.stock_status,-1) INTO loc_stock_status FROM arc_energo.Содержание s 
 	WHERE КодСодержания = ks;
-   -- RAISE NOTICE  'Текущее состояние на складе=%', loc_stock_status;
+   RAISE NOTICE  'Текущее состояние на складе=%', loc_stock_status;
    -- Обсчитать наличие Ясная, Выставка
    SELECT coalesce(Sum(k.Свободно),0) INTO  wh_free FROM arc_energo.Количество k 
    WHERE not Свободно =0 AND КодСклада IN (2,5)  AND КодСодержания = ks;
@@ -75,22 +79,23 @@ IF dev_sinc THEN
    -- если stock_status изменился, обновить "Содержание"
    -- UPDATE "Содержание" SET 
 
-	-- Ну и, собственно, обновляем статус состояния прибора на складе 
-	IF bmode then
-		IF Not loc_stock_status = clc_stock_status THEN
-			RAISE NOTICE  'Обновляем статус =%',clc_stock_status;
-			UPDATE arc_energo.Содержание SET stock_status = clc_stock_status  WHERE КодСодержания =ks;
-
-			SELECT * INTO rs FROM (SELECT loc_stock_status, clc_stock_status) as t1;
-		else 
-			SELECT 0, 0 INTO rs FROM (SELECT loc_stock_status, clc_stock_status) as t1;
-			--RAISE NOTICE  'Обновления не произошло.';
-		END IF;
-	END IF;   
+   -- Ну и, собственно, обновляем статус состояния прибора на складе 
+   IF bmode then
+	IF Not loc_stock_status = clc_stock_status THEN
+		UPDATE arc_energo.Содержание SET stock_status = clc_stock_status  WHERE КодСодержания =ks;
+		-- INSERT INTO arc_energo.logerror (num, desript, Дата) VALUES (Cast(ks as character varying(10)),ie_name_modification, now());
+	else 
+		RAISE NOTICE  'Обновления не произошло.';
+	END IF;
+   INSERT INTO arc_energo.logerror (num, desript, operation, Дата) VALUES (Cast(ks as character varying(10)),ie_name_modification,loc_stock_status||'->'||clc_stock_status::character varying(50), now());	
+   END IF;   
+   RAISE NOTICE  'Обновление=% Cтатусы %->%  % ', bmode, loc_stock_status, clc_stock_status, ie_name_modification;
 ELSE
-	SELECT 0, 0 INTO rs FROM (SELECT loc_stock_status, clc_stock_status) as t1;
-	-- RAISE NOTICE  'Обновления не произошло. Прибор не синхронизирован';
+   RAISE NOTICE  'Обновления не произошло. Прибор не синхронизирован';
 END IF;
+
+SELECT * INTO rs FROM (SELECT loc_stock_status, clc_stock_status) as t1;
+
 RETURN rs;
 END
 $BODY$
