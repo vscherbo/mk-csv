@@ -107,13 +107,14 @@ def do_set_single(notify):
             chg_status = 2
             logging.error("ERROR devmod.set_mod_timedelivery")
             sent_result = str(exc).replace("'", "''")
-            logging.exception("%s _exception_ in devmod.set_mod_timedelivery=%s", parser.prog, sent_result)
-        try:
-            upd_cmd = "UPDATE stock_status_changed SET change_status = "+ str(chg_status) +", sent_result = quote_literal('" + sent_result + "') WHERE id = " + str(chg_id) + ";"
-            logging.debug("upd_cmd=%s", upd_cmd)
-            curs.execute(upd_cmd)
-        except psycopg2.Error, exc:
-            logging.error("%s _exception_UPDATE stock_status_changed=%s", parser.prog, str(exc))
+            logging.error("%s _exception_ in devmod.set_mod_timedelivery=%s", parser.prog, sent_result)
+        finally:
+            try:
+                upd_cmd = "UPDATE stock_status_changed SET change_status = " + str(chg_status) + ", sent_result = quote_literal('" + sent_result + "'), dt_sent = '" + str(datetime.now()) + "' WHERE id = " + str(chg_id) +";"
+                logging.debug("upd_cmd=%s", upd_cmd)
+                curs.execute(upd_cmd)
+            except psycopg2.Error, exc:
+                logging.error("%s _exception_UPDATE stock_status_changed=%s", parser.prog, str(exc))
 
     else:
         logging.warning("? time_delivery == None")
