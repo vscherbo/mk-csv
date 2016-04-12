@@ -110,7 +110,7 @@ def do_set_single(notify):
             logging.error("%s _exception_ in devmod.set_mod_timedelivery=%s", parser.prog, sent_result)
         finally:
             try:
-                upd_cmd = "UPDATE stock_status_changed SET change_status = " + str(chg_status) + ", sent_result = quote_literal('" + sent_result + "'), dt_sent = '" + str(datetime.now()) + "' WHERE id = " + str(chg_id) +";"
+                upd_cmd = "UPDATE stock_status_changed SET change_status = " + str(chg_status) + ", sent_result = '" + sent_result + "', dt_sent = '" + str(datetime.now()) + "' WHERE id = " + str(chg_id) +";"
                 logging.debug("upd_cmd=%s", upd_cmd)
                 curs.execute(upd_cmd)
             except psycopg2.Error, exc:
