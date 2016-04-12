@@ -12,9 +12,16 @@ $BODY$DECLARE
     loc_PG_EXCEPTION_DETAIL varchar;
     loc_PG_EXCEPTION_HINT varchar;
     loc_PG_EXCEPTION_CONTEXT varchar;
+
+    loc_mod_id VARCHAR;
 BEGIN
+  SELECT mod_id INTO loc_mod_id 
+        FROM devmod.modifications
+        WHERE NEW."КодСодержания" = "КодСодержания"
+        AND version_num = 1;
+  IF FOUND THEN
   BEGIN
-    INSERT INTO stock_status_changed(stock_status_old, stock_status_new, ks) VALUES(OLD.stock_status, NEW.stock_status, NEW."КодСодержания");
+    INSERT INTO stock_status_changed(stock_status_old, stock_status_new, ks, mod_id) VALUES(OLD.stock_status, NEW.stock_status, NEW."КодСодержания", loc_mod_id);
 /**    
   EXCEPTION  WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS
@@ -38,6 +45,7 @@ BEGIN
   
 **/    
   END;
+  END IF;
  
   RETURN NEW;
 END;$BODY$
