@@ -15,7 +15,7 @@ DECLARE
   out_str varchar;
   res RECORD;
 BEGIN
-   devicename := quote_ident(devicename);
+   devicename := quote_literal(devicename);
    cmd := 'php -f $ARC_PATH/chk-groups.php ' || devicename;
    res := public.exec_paramiko(site, 22, 'uploader', cmd);
    RETURN res;
