@@ -14,14 +14,18 @@ $BODY$DECLARE
     loc_PG_EXCEPTION_CONTEXT varchar;
 
     loc_mod_id VARCHAR;
+    loc_mod_name VARCHAR;
 BEGIN
-  SELECT mod_id INTO loc_mod_id 
-        FROM devmod.modifications
+  SELECT mod_id, dev_name ||': '||mod_id AS mod_name INTO loc_mod_id, loc_mod_name
+        FROM devmod.modifications m, devmod.device d
         WHERE NEW."КодСодержания" = "КодСодержания"
-        AND version_num = 1;
+        AND m.version_num = 1
+        AND d.version_num = 1
+        AND d.dev_id = m.dev_id;
   IF FOUND THEN
   BEGIN
-    INSERT INTO stock_status_changed(stock_status_old, stock_status_new, ks, mod_id) VALUES(OLD.stock_status, NEW.stock_status, NEW."КодСодержания", loc_mod_id);
+    INSERT INTO stock_status_changed(stock_status_old, stock_status_new, ks, mod_id, mod_name) 
+         VALUES(OLD.stock_status, NEW.stock_status, NEW."КодСодержания", loc_mod_id, loc_mod_name);
 /**    
   EXCEPTION  WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS
