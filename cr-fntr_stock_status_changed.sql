@@ -21,6 +21,7 @@ BEGIN
         WHERE NEW."КодСодержания" = "КодСодержания"
         AND m.version_num = 1
         AND d.version_num = 1
+        AND d.ie_xml_id_dt IS NOT NULL
         AND d.dev_id = m.dev_id;
   IF FOUND THEN
   BEGIN

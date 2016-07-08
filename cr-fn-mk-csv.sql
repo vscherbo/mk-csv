@@ -109,6 +109,13 @@ BEGIN
     IF (res.out_res != '') THEN RAISE 'Prices out_res=%', res.out_res; END IF;
 
     IF flag_prices_new THEN
+        cmd := E'php -f $ARC_PATH/get-prices-ID.php '|| COALESCE(res.out_model_name, '');
+        res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
+        IF res_exec.err_str <> '' THEN RAISE 'get-prices cmd=%^err_str=[%]', cmd, res_exec.err_str; 
+        ELSE str_res := res_exec.out_str;
+        END IF;
+        
+        -- delete section
         cmd := E'php -f $ARC_PATH/del-price-section.php '|| COALESCE(res.out_model_name, '');
         res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
         IF res_exec.err_str <> '' THEN RAISE 'Prices cmd=%^err_str=[%]', cmd, res_exec.err_str; 
@@ -133,7 +140,7 @@ BEGIN
         -- fin-info-update будет вызвана в ветке device, т.к. для новых приборов цены должны экспортироваться вместе с прибором
         -- cmd := 'ssh uploader@' || site || ' php -f ./get-prices-ID.php '|| res.out_model_name;
         -- str_res := public.shell(cmd);
-        cmd := E'php -f $ARC_PATH/get-prices-ID.php '|| res.out_model_name ;
+        cmd := E'php -f $ARC_PATH/get-prices-ID.php '|| COALESCE(res.out_model_name, '');
         res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
         IF res_exec.err_str <> '' THEN RAISE 'get-prices cmd=%^err_str=[%]', cmd, res_exec.err_str; 
         ELSE str_res := res_exec.out_str;
@@ -190,13 +197,6 @@ BEGIN
     str_res := public.shell(cmd);
     if (str_res != '') then RAISE 'Device cmd=%^result=[%]', cmd, str_res; END IF;
 
-    /*
-    SELECT ' '|| bx_fld_value INTO strCatGroups FROM devmod.bx_export_csv WHERE exp_id = aexp_id AND bx_fld_name = 'bx_groups' ;
-    cmd := '/usr/bin/ssh uploader@' || site || ' /usr/bin/php -f ./set-dev-groups.php '|| res.out_model_name || strCatGroups;
-    str_res := public.shell(cmd);
-    if position('ERROR' in str_res) > 0 then RAISE 'Device cmd=%^result=[%]', cmd, str_res; END IF;
-    */
-    
     strFinInfoUpdateArgs := ' ';
     IF (mods_section_id IS NOT NULL)
     THEN 
@@ -230,6 +230,7 @@ BEGIN
     SELECT * INTO str_res, err_str FROM public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
     IF err_str <> '' THEN RAISE 'Device cmd=%^err_str=[%]', cmd, err_str; 
     END IF; */
+    
     BEGIN
         dev_xml_id := cast(str_res as integer);
         exception WHEN OTHERS 
@@ -237,14 +238,36 @@ BEGIN
     END;
     RAISE NOTICE 'dev_xml_id=%', dev_xml_id;
     
+    /**/
+    SELECT bx_fld_value INTO strCatGroups FROM devmod.bx_export_csv WHERE exp_id = aexp_id AND bx_fld_name = 'bx_groups' ;
+    IF FOUND THEN
+       cmd := E'php -f $ARC_PATH/set-dev-groups.php '|| res.out_model_name || ' ' || strCatGroups;
+        
+       IF cmd IS NULL THEN RAISE 'Device set-dev-groups cmd IS NULL'; END IF;
+       RAISE NOTICE 'Device set-dev-groups cmd=[%]', cmd;
+       res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
+       IF res_exec.err_str <> '' THEN RAISE 'set-dev-groups cmd=%^err_str=[%]', cmd, res_exec.err_str; 
+       ELSE str_res := res_exec.out_str;
+       END IF;
+
+       res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, '/usr/bin/php $ARC_PATH/test-flush-memcache.php');
+       IF res_exec.err_str <> '' THEN RAISE 'flush-memcache cmd=%^err_str=[%]', cmd, res_exec.err_str; 
+       ELSE str_res := res_exec.out_str;
+       END IF;
+    END IF; -- bx_groups
+    /**/
 
     upd_str := '';
-    IF flag_dev_new AND (exp.exp_mod::BIT(3) & device_mode = device_mode) -- xml_id is NULL и есть бит device_mode
+    -- IF flag_dev_new AND (exp.exp_mod::BIT(3) & device_mode = device_mode) -- xml_id is NULL и есть бит device_mode
+    IF (exp.exp_mod::BIT(3) & device_mode = device_mode) -- есть бит device_mode
     THEN
-       upd_str := upd_str || 'ie_xml_id = '||dev_xml_id ||', ie_xml_id_dt = now(), ';
-        -- UPDATE devmod.device SET  ie_xml_id = dev_xml_id, ie_xml_id_dt = now()
-            -- WHERE exp.dev_id = dev_id AND exp.exp_version_num = version_num;
-    END IF; -- flag_dev_new
+        IF flag_dev_new -- xml_id is NULL
+        THEN
+           upd_str := upd_str || 'ie_xml_id = '||dev_xml_id ||', ie_xml_id_dt = now(), ';
+        ELSE
+           upd_str := upd_str || 'ie_xml_id_dt = now(), ';
+        END IF; -- flag_dev_new
+    END IF; -- device_mode
 
     IF flag_mods_new AND (exp.exp_mod::BIT(3) & modificators_mode = modificators_mode) -- prop675 is NULL и есть бит modificators_mode
     THEN
@@ -278,12 +301,12 @@ BEGIN
   -- DEBUG flush memcache
   /**
   IF 'kipspb.ru' = site THEN
-  **/
+  **
      res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, '/usr/bin/php $ARC_PATH/test-flush-memcache.php');
      IF res_exec.err_str <> '' THEN RAISE 'flush-memcache cmd=%^err_str=[%]', cmd, res_exec.err_str; 
      ELSE str_res := res_exec.out_str;
      END IF;
-  /**
+  **
   END IF;
   **/
 
