@@ -1,9 +1,9 @@
--- Function: fn_set_stock_status(integer)
+-- Function: fn_set_stock_status(integer, boolean)
 
 -- DROP FUNCTION fn_set_stock_status(integer, boolean);
 
-CREATE OR REPLACE FUNCTION arc_energo.fn_set_stock_status(ks integer, bmode boolean )
-  RETURNS record AS 
+CREATE OR REPLACE FUNCTION fn_set_stock_status(ks integer, bmode boolean)
+  RETURNS record AS
 $BODY$DECLARE
   rs RECORD;
   loc_stock_status INTEGER;
@@ -41,7 +41,11 @@ WHERE not Свободно =0 AND NOT КодСклада IN (1,3,8,9,10)  AND К
 -- RAISE NOTICE  'наличие на складе =%', wh_free;
 	
 -- Считаем резервы по оплаченным счетам
-SELECT coalesce(Sum(Резерв),0) INTO wh_reserve FROM arc_energo.Резерв r WHERE КодСодержания = ks And КогдаСнял Is Null AND (SELECT coalesce(Sum(Сумма),0) FROM arc_energo.ОплатыНТУ s WHERE r.Счет=s.Счет )>0;
+SELECT coalesce(Sum(Резерв),0) INTO wh_reserve FROM arc_energo.Резерв r 
+WHERE Not СтатусРезерва=3 
+AND КодСодержания = ks 
+And КогдаСнял Is Null 
+AND (SELECT coalesce(Sum(Сумма),0) FROM arc_energo.ОплатыНТУ s WHERE r.Счет=s.Счет )>0;
 -- RAISE NOTICE  'Оплаченные резервы=%', wh_reserve;
    
 IF wh_free - wh_reserve > 0 THEN
@@ -104,7 +108,6 @@ END
 $BODY$
   LANGUAGE plpgsql VOLATILE
   COST 100;
-ALTER FUNCTION arc_energo.fn_set_stock_status(integer, boolean)
+ALTER FUNCTION fn_set_stock_status(integer, boolean)
   OWNER TO arc_energo;
-COMMENT ON FUNCTION arc_energo.fn_set_stock_status(integer, boolean) IS 'Изменяет Содержание.stock_status, если изменился';
-
+COMMENT ON FUNCTION fn_set_stock_status(integer, boolean) IS 'Изменяет Содержание.stock_status, если изменился';
