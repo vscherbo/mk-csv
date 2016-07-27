@@ -30,7 +30,7 @@ $BODY$DECLARE
   loc_prop675 INTEGER; -- Модификаторы прибора
   strCatGroups VARCHAR;
   good_export_str VARCHAR;
-  upd_str VARCHAR;
+  upd_str VARCHAR = '';
 BEGIN
     SELECT * INTO exp FROM devmod.bx_export_log WHERE exp_id = aexp_id FOR UPDATE;
     IF NOT found THEN RAISE 'exp_id=% not found in devmod.bx_export_log', aexp_id ; RETURN; END IF;
@@ -94,12 +94,15 @@ BEGIN
                 exception WHEN OTHERS 
                     THEN RAISE 'Modificators cmd=%^result=[%]', cmd, str_res; 
                 END;
+            upd_str := upd_str || 'ip_prop675 = ' || mods_section_id || ', ';
         ELSE mods_section_id := loc_prop675;
         END IF; -- flag_mods_new
         RAISE NOTICE 'mods_section_id=%', mods_section_id;
 
-      exp.exp_csv_status := COALESCE( (exp.exp_csv_status::BIT(3) | modificators_mode)::INTEGER, modificators_mode::INTEGER);
-    END IF;
+        upd_str := upd_str || 'ip_prop675_dt = now(), ';
+
+        exp.exp_csv_status := COALESCE( (exp.exp_csv_status::BIT(3) | modificators_mode)::INTEGER, modificators_mode::INTEGER);
+    END IF; -- modificators
 
   IF (exp.exp_mod::BIT(3) & price_mode = price_mode) THEN -- prices
     res := devmod.mk_csv_prices(exp.exp_id);
@@ -150,6 +153,7 @@ BEGIN
             exception WHEN OTHERS 
                 THEN RAISE 'Prices cmd=%^result=[%]', cmd, str_res; 
         END;
+        upd_str := upd_str || 'ip_prop674 = ' || price_section_id || ', ';
     ELSE -- NOT flag_prices_new
         price_section_id := loc_prop674;
         -- TODO выделить в процедуру
@@ -176,10 +180,11 @@ BEGIN
         END IF; -- если device не будет обновляться
     END IF; -- flag_prices_new
     RAISE NOTICE 'price_section_id=%', price_section_id;
-    
+
+    upd_str := upd_str || 'ip_prop674_dt = now(), ';
     
     exp.exp_csv_status := COALESCE( (exp.exp_csv_status::BIT(3) | price_mode)::INTEGER, price_mode::INTEGER);
-  END IF;
+  END IF; -- prices
 
   IF (exp.exp_mod::BIT(3) & device_mode = device_mode) THEN -- device
     res := devmod.mk_csv_device(exp.exp_id);
@@ -216,6 +221,7 @@ BEGIN
     cmd := E'php $ARC_PATH/fin-info-update-params.php';
     IF flag_dev_new THEN 
        cmd := cmd ||  ' -n'|| res.out_model_name || strFinInfoUpdateArgs;
+       upd_str := upd_str || 'ie_xml_id = '||dev_xml_id ||', ' ;
     ELSE
        cmd := cmd ||  ' -i'|| loc_xml_id || strFinInfoUpdateArgs;
     END IF;
@@ -257,31 +263,14 @@ BEGIN
     END IF; -- bx_groups
     /**/
 
-    upd_str := '';
-    -- IF flag_dev_new AND (exp.exp_mod::BIT(3) & device_mode = device_mode) -- xml_id is NULL и есть бит device_mode
-    IF (exp.exp_mod::BIT(3) & device_mode = device_mode) -- есть бит device_mode
-    THEN
-        IF flag_dev_new -- xml_id is NULL
-        THEN
-           upd_str := upd_str || 'ie_xml_id = '||dev_xml_id ||', ie_xml_id_dt = now(), ';
-        ELSE
-           upd_str := upd_str || 'ie_xml_id_dt = now(), ';
-        END IF; -- flag_dev_new
-    END IF; -- device_mode
+    IF flag_dev_new THEN 
+       upd_str := upd_str || 'ie_xml_id = '||dev_xml_id ||', ' ;
+    END IF;
+    upd_str := upd_str || 'ie_xml_id_dt = now(), ';
 
-    IF flag_mods_new AND (exp.exp_mod::BIT(3) & modificators_mode = modificators_mode) -- prop675 is NULL и есть бит modificators_mode
-    THEN
-       upd_str := upd_str || 'ip_prop675 = ' || mods_section_id || ', ';
-       --UPDATE devmod.device SET  ip_prop675 = mods_section_id
-         -- WHERE exp.dev_id = dev_id AND exp.exp_version_num = version_num;
-    END IF; -- flag_mods_new
-
-    IF flag_prices_new AND (exp.exp_mod::BIT(3) & price_mode = price_mode) -- prop674 is NULL и есть бит price_mode
-    THEN
-       upd_str := upd_str || 'ip_prop674 = ' || price_section_id || ', ';
-       --UPDATE devmod.device SET  ip_prop674 = price_section_id
-           -- WHERE exp.dev_id = dev_id AND exp.exp_version_num = version_num;
-    END IF; -- flag_prices_new
+    exp.exp_csv_status := COALESCE( (exp.exp_csv_status::BIT(3) | device_mode)::INTEGER, device_mode::INTEGER);
+    -- exp.exp_csv_status := COALESCE( (exp.exp_csv_status | device_mode), device_mode);
+  END IF; -- device
 
 /**/
     RAISE NOTICE 'upd_str=%', upd_str;
@@ -294,21 +283,15 @@ BEGIN
     END IF; -- do_update_flag
 /**/
         
-    exp.exp_csv_status := COALESCE( (exp.exp_csv_status::BIT(3) | device_mode)::INTEGER, device_mode::INTEGER);
-    -- exp.exp_csv_status := COALESCE( (exp.exp_csv_status | device_mode), device_mode);
-  END IF; -- device
-
   -- DEBUG flush memcache
-  /**
+  /**/
   IF 'kipspb.ru' = site THEN
-  **
      res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, '/usr/bin/php $ARC_PATH/test-flush-memcache.php');
      IF res_exec.err_str <> '' THEN RAISE 'flush-memcache cmd=%^err_str=[%]', cmd, res_exec.err_str; 
      ELSE str_res := res_exec.out_str;
      END IF;
-  **
   END IF;
-  **/
+  /**/
 
     -- put an Article about finish of export
   good_export_str := 'Завершён экспорт модели ' || res.out_model_name || ' на сайт ' || site || ' (exp_id='||aexp_id|| ')' ;
