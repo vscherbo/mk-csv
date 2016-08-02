@@ -93,7 +93,7 @@ BEGIN
                 mods_section_id := cast(str_res as integer);
                 exception WHEN OTHERS 
                     THEN RAISE 'Modificators cmd=%^result=[%]', cmd, str_res; 
-                END;
+            END;
             upd_str := upd_str || 'ip_prop675 = ' || mods_section_id || ', ';
         ELSE mods_section_id := loc_prop675;
         END IF; -- flag_mods_new
@@ -221,7 +221,6 @@ BEGIN
     cmd := E'php $ARC_PATH/fin-info-update-params.php';
     IF flag_dev_new THEN 
        cmd := cmd ||  ' -n'|| res.out_model_name || strFinInfoUpdateArgs;
-       upd_str := upd_str || 'ie_xml_id = '||dev_xml_id ||', ' ;
     ELSE
        cmd := cmd ||  ' -i'|| loc_xml_id || strFinInfoUpdateArgs;
     END IF;
@@ -232,10 +231,6 @@ BEGIN
     IF res_exec.err_str <> '' THEN RAISE 'fin-info-update cmd=%^err_str=[%]', cmd, res_exec.err_str; 
     ELSE str_res := res_exec.out_str;
     END IF;
-    /* 
-    SELECT * INTO str_res, err_str FROM public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
-    IF err_str <> '' THEN RAISE 'Device cmd=%^err_str=[%]', cmd, err_str; 
-    END IF; */
     
     BEGIN
         dev_xml_id := cast(str_res as integer);
@@ -243,7 +238,7 @@ BEGIN
             THEN RAISE 'Device cmd=%^result=[%]', cmd, str_res; 
     END;
     RAISE NOTICE 'dev_xml_id=%', dev_xml_id;
-    
+
     /**/
     SELECT bx_fld_value INTO strCatGroups FROM devmod.bx_export_csv WHERE exp_id = aexp_id AND bx_fld_name = 'bx_groups' ;
     IF FOUND THEN
@@ -273,7 +268,7 @@ BEGIN
   END IF; -- device
 
 /**/
-    RAISE NOTICE 'upd_str=%', upd_str;
+    RAISE NOTICE 'upd_str=%', COALESCE(upd_str, 'upd_str is empty');
     IF char_length(upd_str)>0 THEN
        -- delete last comma
         upd_str := 'UPDATE devmod.device SET ' || TRIM(trailing ', ' from upd_str) || 
