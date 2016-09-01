@@ -14,6 +14,7 @@ $BODY$
 
  import paramiko
  from datetime import datetime
+ from os.path import expanduser
  flog = open("/tmp/shell.log", "a")
  flog.write("Start at " + str(datetime.now()) +'\n')
  rem_cmd = rem_cmd1
@@ -22,7 +23,9 @@ $BODY$
     rem_cmd = 'None str'
  flog.write("rem_cmd=" + rem_cmd +'\n')
 
- k = paramiko.RSAKey.from_private_key_file("/var/lib/pgsql/.ssh/id_rsa")
+ home_dir = expanduser("~")
+ # k = paramiko.RSAKey.from_private_key_file("/var/lib/pgsql/.ssh/id_rsa")
+ k = paramiko.RSAKey.from_private_key_file(home_dir + "/.ssh/id_rsa")
 
  client = paramiko.SSHClient()
  client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
