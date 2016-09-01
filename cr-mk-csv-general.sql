@@ -49,7 +49,8 @@ BEGIN
     FROM devmod.device d, devmod.bx_export_log l
     WHERE
         l.exp_id = alogid
-        AND l.dev_id = d.dev_id;
+        AND l.dev_id = d.dev_id
+        AND d.version_num = 1;
   --
   RAISE NOTICE 'mk_csv_general: out_model_name=%', out_model_name;
 
