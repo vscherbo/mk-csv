@@ -68,56 +68,31 @@ def do_mk_csv(notify):
 
 def do_set_single(notify):
     logging.debug("     Inside do_set_single")
-    time_delivery = u''
-    (str_modid, stock_status, chg_id) = notify.payload.split('^')
-    if '0' == stock_status: # NOT in stock
-        logging.info("Not in_stock branch")
-        curs.callproc('devmod.get_def_time_delivery', [str_modid])
-        res = curs.fetchone()
-        time_delivery = res[0]
-        logging.debug("type of time_delivery=%s", type(time_delivery))
-        logging.info("got default time_delivery=%s", time_delivery)
-        if time_delivery.find('not found') > 0:
-            logging.warning("set time_delivery = None")
-            time_delivery = None # time_delivery is incorrect
-        else:
-            logging.debug("Found time_delivery = %s", time_delivery)
-    elif '1' == stock_status:
-        time_delivery = u'Ожидается на склад'
-    elif '2' == stock_status:
-        time_delivery = u'Со склада'
-    else:   
-        # TODO wrong stock_status
-        time_delivery = None
-        logging.warning("wrong stock_status={%s}, time_delivery = None", stock_status)
+    (str_modid, time_delivery, chg_id) = notify.payload.split('^')
 
-    if time_delivery != None:
-        logging.info("time_delivery = %s", time_delivery)
-        if ('vm-pg' == args.host) or ('vm-pg.arc.world' == args.host):
-            site = 'kipspb.ru'
-        else:
-            site = 'kipspb-fl.arc.world'
-        logging.info("before call devmod.set_mod_timedelivery([%s], [%s], [%s])", site, str_modid, time_delivery)
-        sent_result = site +' updated'
-        try:
-            curs.callproc('devmod.set_mod_timedelivery', [site, str_modid, time_delivery])
-            logging.info("devmod.set_mod_timedelivery completed")
-            chg_status = 1
-        except psycopg2.Error, exc:
-            chg_status = 2
-            logging.error("ERROR devmod.set_mod_timedelivery")
-            sent_result = str(exc).replace("'", "''")
-            logging.error("%s _exception_ in devmod.set_mod_timedelivery=%s", parser.prog, sent_result)
-        finally:
-            try:
-                upd_cmd = "UPDATE stock_status_changed SET change_status = " + str(chg_status) + ", sent_result = '" + sent_result + "', dt_sent = '" + str(datetime.now()) + "' WHERE id = " + str(chg_id) +";"
-                logging.debug("upd_cmd=%s", upd_cmd)
-                curs.execute(upd_cmd)
-            except psycopg2.Error, exc:
-                logging.error("%s _exception_UPDATE stock_status_changed=%s", parser.prog, str(exc))
-
+    if ('vm-pg' == args.host) or ('vm-pg.arc.world' == args.host):
+        site = 'kipspb.ru'
     else:
-        logging.warning("? time_delivery == None")
+        site = 'kipspb-fl.arc.world'
+    logging.info("before call devmod.set_mod_timedelivery([%s], [%s], [%s])", site, str_modid, time_delivery)
+    sent_result = site +' updated'
+    try:
+        curs.callproc('devmod.set_mod_timedelivery', [site, str_modid, time_delivery])
+        logging.info("devmod.set_mod_timedelivery completed")
+        chg_status = 1
+    except psycopg2.Error, exc:
+        chg_status = 2
+        logging.error("ERROR devmod.set_mod_timedelivery")
+        sent_result = str(exc).replace("'", "''")
+        logging.error("%s _exception_ in devmod.set_mod_timedelivery=%s", parser.prog, sent_result)
+    finally:
+        try:
+            upd_cmd = "UPDATE stock_status_changed SET change_status = " + str(chg_status) + ", sent_result = '" + sent_result + "', dt_sent = '" + str(datetime.now()) + "' WHERE id = " + str(chg_id) +";"
+            logging.debug("upd_cmd=%s", upd_cmd)
+            curs.execute(upd_cmd)
+        except psycopg2.Error, exc:
+            logging.error("%s _exception_UPDATE stock_status_changed=%s", parser.prog, str(exc))
+
     logging.info("Finish set_mod_timedelivery")
 
 def do_listen(a_pg_timeout):

@@ -15,6 +15,7 @@ $BODY$DECLARE
 
     loc_mod_id VARCHAR;
     loc_mod_name VARCHAR;
+    loc_time_delivery VARCHAR;
 BEGIN
   SELECT mod_id, dev_name ||': '||mod_id AS mod_name INTO loc_mod_id, loc_mod_name
         FROM devmod.modifications m, devmod.device d
@@ -24,9 +25,15 @@ BEGIN
         AND d.ie_xml_id_dt IS NOT NULL
         AND d.dev_id = m.dev_id;
   IF FOUND THEN
-  BEGIN
-    INSERT INTO stock_status_changed(stock_status_old, stock_status_new, ks, mod_id, mod_name) 
-         VALUES(OLD.stock_status, NEW.stock_status, NEW."КодСодержания", loc_mod_id, loc_mod_name);
+    IF NEW.stock_status = 0 THEN -- под заказ
+        loc_time_delivery := devmod.get_def_time_delivery(loc_mod_id); 
+    ELSIF NEW.stock_status = 1 THEN -- заказан
+        loc_time_delivery := get_expect_date(NEW."КодСодержания");
+    ELSIF NEW.stock_status = 2 THEN -- в наличии 
+        loc_time_delivery := E'Со склада';
+    END IF;
+    INSERT INTO stock_status_changed(stock_status_old, stock_status_new, ks, mod_id, mod_name, time_delivery) 
+         VALUES(OLD.stock_status, NEW.stock_status, NEW."КодСодержания", loc_mod_id, loc_mod_name, loc_time_delivery);
 /**    
   EXCEPTION  WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS
@@ -49,7 +56,8 @@ BEGIN
 
   
 **/    
-  END;
+  ELSE
+     RAISE NOTICE 'stock_status_changed, Не найден KS=%', NEW."КодСодержания";
   END IF;
  
   RETURN NEW;
