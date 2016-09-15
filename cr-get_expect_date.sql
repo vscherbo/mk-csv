@@ -4,7 +4,8 @@
 
 CREATE OR REPLACE FUNCTION get_expect_date(ks integer)
   RETURNS character varying AS
-$BODY$SELECT coalesce(min(to_char(ДатаОжидания, 'YYYY-MM-DD')), 'Ожидается на склад') AS result
+$BODY$SELECT 'Ожидается ' || coalesce(min(to_char(ДатаОжидания, 'YYYY.MM.DD')), 'на склад') AS result
+--SELECT coalesce(min(to_char(ДатаОжидания, 'YYYY-MM-DD')), 'Ожидается на склад') AS result
 	FROM arc_energo."Заказ" z
 	JOIN arc_energo."СписокЗаказа" sz ON z."Заказ" = sz."Заказ"
 	WHERE not coalesce(sz."Отменен",false) 
