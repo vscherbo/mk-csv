@@ -16,7 +16,8 @@ BEGIN
 
   IF NOT FOUND THEN -- mod_id не найден
      loc_def_delivery_time := 'modification not found';
-  ELSIF mod.mod_delivery_time IS NULL THEN -- если не задан в модификации, берём из прибора   
+  ELSIF mod.mod_delivery_time IS NULL OR mod.mod_delivery_time = ''
+  THEN -- если не задан в модификации, берём из прибора   
      SELECT timedelivery INTO loc_def_delivery_time 
         FROM devmod.device
         WHERE dev_id = mod.dev_id
