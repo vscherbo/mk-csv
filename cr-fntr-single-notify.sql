@@ -7,7 +7,7 @@ CREATE OR REPLACE FUNCTION fntr_single_notify()
 $BODY$
 BEGIN
   -- EXECUTE pg_notify('do_single', NEW.mod_id || '^' || NEW.stock_status_new::VARCHAR || '^' || NEW.id::VARCHAR);
-  EXECUTE pg_notify('do_single', NEW.mod_id || '^' || NEW.time_delivery::VARCHAR || '^' || NEW.id::VARCHAR);
+  EXECUTE pg_notify('do_single', NEW.mod_id || '^' || NEW.time_delivery::VARCHAR || '^' || NEW.id::VARCHAR || '^' || COALESCE(NEW.qnt::VARCHAR, ''));
   RETURN NEW;
 END;$BODY$
   LANGUAGE plpgsql VOLATILE

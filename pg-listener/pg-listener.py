@@ -14,7 +14,7 @@ import psycopg2.extensions
 import logging
 
 #pg_channel = 'do_export'
-pg_channels = ('do_export', 'do_single')
+pg_channels = ('do_export', 'do_single', 'do_expected')
 pg_timeout = 5
 mark_display=3600
 
@@ -68,23 +68,23 @@ def do_mk_csv(notify):
 
 def do_set_single(notify):
     logging.debug("     Inside do_set_single")
-    (str_modid, time_delivery, chg_id) = notify.payload.split('^')
+    (str_modid, time_delivery, chg_id, qnt) = notify.payload.split('^')
 
     if ('vm-pg' == args.host) or ('vm-pg.arc.world' == args.host):
         site = 'kipspb.ru'
     else:
         site = 'kipspb-fl.arc.world'
-    logging.info("before call devmod.set_mod_timedelivery([%s], [%s], [%s])", site, str_modid, time_delivery)
+    logging.info("before call arc_energo.set_mod_timedelivery([%s], [%s], [%s], [%s])", site, str_modid, time_delivery, qnt)
     sent_result = site +' updated'
     try:
-        curs.callproc('devmod.set_mod_timedelivery', [site, str_modid, time_delivery])
-        logging.info("devmod.set_mod_timedelivery completed")
+        curs.callproc('arc_energo.set_mod_timedelivery', [site, str_modid, time_delivery, qnt])
+        logging.info("arc_energo.set_mod_timedelivery completed")
         chg_status = 1
     except psycopg2.Error, exc:
         chg_status = 2
-        logging.error("ERROR devmod.set_mod_timedelivery")
+        logging.error("ERROR arc_energo.set_mod_timedelivery")
         sent_result = str(exc).replace("'", "''")
-        logging.error("%s _exception_ in devmod.set_mod_timedelivery=%s", parser.prog, sent_result)
+        logging.error("%s _exception_ in arc_energo.set_mod_timedelivery=%s", parser.prog, sent_result)
     finally:
         try:
             upd_cmd = "UPDATE stock_status_changed SET change_status = " + str(chg_status) + ", sent_result = '" + sent_result + "', dt_sent = '" + str(datetime.now()) + "' WHERE id = " + str(chg_id) +";"
@@ -94,6 +94,35 @@ def do_set_single(notify):
             logging.error("%s _exception_UPDATE stock_status_changed=%s", parser.prog, str(exc))
 
     logging.info("Finish set_mod_timedelivery")
+
+def do_set_expected(notify):
+    logging.debug("     Inside do_set_expected")
+    (str_modid, str_expected, chg_id) = notify.payload.split('^')
+
+    if ('vm-pg' == args.host) or ('vm-pg.arc.world' == args.host):
+        site = 'kipspb.ru'
+    else:
+        site = 'kipspb-fl.arc.world'
+    logging.info("before call arc_energo.set_mod_expected_shipments([%s], [%s], [%s], [%s])", site, str_modid, str_expected)
+    sent_result = site +' updated'
+    try:
+        curs.callproc('arc_energo.set_mod_expected_shipments', [site, str_modid, str_expected])
+        logging.info("arc_energo.set_mod_expected_shipments completed")
+        chg_status = 1
+    except psycopg2.Error, exc:
+        chg_status = 9
+        logging.error("ERROR arc_energo.set_mod_expected_shipments")
+        sent_result = str(exc).replace("'", "''")
+        logging.error("%s _exception_ in arc_energo.set_mod_expected_shipments=%s", parser.prog, sent_result)
+    finally:
+        try:
+            upd_cmd = "UPDATE expected_shipments SET status = " + str(chg_status) + ", sent_result = '" + sent_result + "', dt_sent = '" + str(datetime.now()) + "' WHERE id = " + str(chg_id) +";"
+            logging.debug("upd_cmd=%s", upd_cmd)
+            curs.execute(upd_cmd)
+        except psycopg2.Error, exc:
+            logging.error("%s _exception_UPDATE expected_shipments=%s", parser.prog, str(exc))
+
+    logging.info("Finish set_mod_expected_shipments")
 
 def do_listen(a_pg_timeout):
     sel_res = select.select([conn], [], [], a_pg_timeout)
@@ -108,6 +137,8 @@ def do_listen(a_pg_timeout):
                 do_mk_csv(notify)
             elif 'do_single' == notify.channel:
                 do_set_single(notify)
+            elif 'do_expected' == notify.channel:
+                do_set_expected(notify)
             else:
                 pass
         conn.commit()
@@ -119,7 +150,7 @@ DSN = 'dbname=%s host=%s user=%s' % (args.db, args.host, args.user)
 
 numeric_level = getattr(logging, args.log, None)
 if not isinstance(numeric_level, int):
-    raise ValueError('Invalid log level: %s' % loglevel)
+    raise ValueError('Invalid log level: %s' % numeric_level)
 logging.basicConfig(filename='pg-listener.log', format='%(asctime)s %(levelname)s: %(message)s', level=numeric_level) # INFO)
 
 logging.info("Started")
