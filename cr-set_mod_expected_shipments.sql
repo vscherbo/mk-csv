@@ -12,7 +12,7 @@ DECLARE cmd character varying;
   res_exec RECORD;
   ret_str VARCHAR := '';
 BEGIN
-    cmd := E'php $ARC_PATH/update-expected-shipment.php';
+    cmd := E'php $ARC_PATH/update-expected-shipments.php';
     cmd := cmd ||  ' -m'|| mod_code::VARCHAR;
     cmd := cmd ||  ' -e''' || mod_expected_shipments || '''' ;
     
