@@ -19,6 +19,7 @@ $BODY$DECLARE
     loc_mod_id VARCHAR;
     loc_mod_name VARCHAR;
     loc_time_delivery VARCHAR;
+    loc_qnt NUMERIC := 0;
 BEGIN
   SELECT mod_id, dev_name ||': '||mod_id AS mod_name INTO loc_mod_id, loc_mod_name
         FROM devmod.modifications m, devmod.device d
@@ -34,10 +35,11 @@ BEGIN
             loc_time_delivery := get_expect_date(ks);
         ELSIF arg_new_stock_status = 2 THEN -- в наличии 
             loc_time_delivery := E'Со склада';
+            loc_qnt := stock_availability(ks);
         END IF;
 
-    INSERT INTO stock_status_changed(stock_status_old, stock_status_new, ks, mod_id, mod_name, time_delivery) 
-         VALUES(arg_old_stock_status, arg_new_stock_status, ks, loc_mod_id, loc_mod_name, loc_time_delivery);
+    INSERT INTO stock_status_changed(stock_status_old, stock_status_new, ks, mod_id, mod_name, time_delivery, qnt) 
+         VALUES(arg_old_stock_status, arg_new_stock_status, ks, loc_mod_id, loc_mod_name, loc_time_delivery, loc_qnt);
 /**    
   EXCEPTION  WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS
