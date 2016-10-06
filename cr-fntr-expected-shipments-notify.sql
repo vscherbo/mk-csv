@@ -6,7 +6,7 @@ CREATE OR REPLACE FUNCTION fntr_expected_shipments_notify()
   RETURNS trigger AS
 $BODY$
 BEGIN
-  EXECUTE pg_notify('do_expected', NEW.mod_id || '^' || NEW.expected || '^' || NEW.id::VARCHAR);
+  EXECUTE pg_notify('do_expected', get_mod_id(NEW.ks) || '^' || NEW.expected || '^' || NEW.id::VARCHAR);
   RETURN NEW;
 END;$BODY$
   LANGUAGE plpgsql VOLATILE
