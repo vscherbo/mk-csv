@@ -103,7 +103,7 @@ def do_set_expected(notify):
         site = 'kipspb.ru'
     else:
         site = 'kipspb-fl.arc.world'
-    logging.info("before call arc_energo.set_mod_expected_shipments([%s], [%s], [%s], [%s])", site, str_modid, str_expected)
+    logging.info("before call arc_energo.set_mod_expected_shipments([%s], [%s], [%s])", site, str_modid, str_expected)
     sent_result = site +' updated'
     try:
         curs.callproc('arc_energo.set_mod_expected_shipments', [site, str_modid, str_expected])
