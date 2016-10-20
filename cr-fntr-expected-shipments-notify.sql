@@ -6,7 +6,7 @@ CREATE OR REPLACE FUNCTION fntr_expected_shipments_notify()
   RETURNS trigger AS
 $BODY$
 DECLARE
-  loc_mod_id INTEGER;
+  loc_mod_id VARCHAR;
 BEGIN
     loc_mod_id := get_mod_id(NEW.ks);
     IF loc_mod_id IS NOT NULL THEN
