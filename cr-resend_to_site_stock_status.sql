@@ -9,6 +9,7 @@ DECLARE
    chg RECORD;
 BEGIN
    IF 1 = do_status THEN return; end IF; -- ignore status 1 (sent)
+   IF -1 = do_status THEN return; end IF; -- ignore status -1 (blocked)
    
    FOR chg IN SELECT * FROM stock_status_changed WHERE change_status = do_status LOOP
       RAISE NOTICE 'Resent stock_status: dt_change=%, KS=%, mod_id=%, qnt=%', chg.dt_change, chg.ks, chg.mod_id, quote_nullable(chg.qnt) ;
