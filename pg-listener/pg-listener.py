@@ -145,7 +145,7 @@ def do_listen(a_pg_timeout):
             else:
                 logging.warning("unexpected notify.channel=%s", notify.channel)
                 pass
-        conn.commit()
+            conn.commit()
 # End of do_listen
 
 
