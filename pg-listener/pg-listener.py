@@ -48,6 +48,7 @@ signal.signal(signal.SIGTERM, signal_handler)
 
 def do_mk_csv(notify):
     try:
+        logging.debug("try devmod.fn_mk_csv(%s)", notify.payload)
         curs.callproc('devmod.fn_mk_csv', [notify.payload])
     except psycopg2.Error, exc:
         logging.warning("%s _exception_fn_mk_csv=%s", parser.prog, str(exc))
@@ -56,11 +57,13 @@ def do_mk_csv(notify):
                      + notify.payload)
         emp_id = curs.fetchone()
         try:
+            logging.debug("try fn_push_article2user(%s, %s)", emp_id, 'exp_id='+ notify.payload + '/' + str(exc)) 
             curs.callproc('fn_push_article2user', [emp_id, 'exp_id='+ notify.payload + '/' + str(exc)])
         except psycopg2.Error, exc:
             logging.warning("%s _exception_fn_push_article2user=%s", parser.prog, str(exc))
 
         try:
+            logging.debug("try UPDATE devmod.bx_export_log SET exp_result ... WHERE exp_id=%s", notify.payload)
             curs.execute("UPDATE devmod.bx_export_log SET exp_result = quote_literal('" + str(exc).replace("'", "''") +  "') WHERE exp_id = " + notify.payload + ";" )
         except psycopg2.Error, exc:
             logging.warning("%s _exception_UPDATE bx_export_log=%", parser.prog, str(exc))
@@ -140,6 +143,7 @@ def do_listen(a_pg_timeout):
             elif 'do_expected' == notify.channel:
                 do_set_expected(notify)
             else:
+                logging.warning("unexpected notify.channel=%s", notify.channel)
                 pass
         conn.commit()
 # End of do_listen
