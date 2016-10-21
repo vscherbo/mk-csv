@@ -16,9 +16,6 @@ BEGIN
      -- same site
      -- same version
 
-  -- patch
-  DROP TABLE csv_ib30_tmp;
-
   PERFORM devmod.mk_csv_general(exp_id, 'devmod.bx_dict_ib30', price_mode::INTEGER, false) 
           FROM devmod.bx_export_log 
           WHERE exp_batch_id=abatch_id; 
@@ -34,6 +31,7 @@ BEGIN
   -- make csv-file
   str_res := mk_csv('SELECT * FROM csv_ib30_tmp', '/tmp/ib30-list.csv');
   if (str_res != '') then RAISE 'mk_csv: str_res=[%]', str_res; END IF;
+  DROP TABLE csv_ib30_tmp;
 
   -- copy csv-file to site
   str_res := public.scp('/tmp/ib30-list.csv', 'uploader', site, 'upload/import-update.csv');
@@ -44,6 +42,7 @@ BEGIN
  -- cmd := ' sh ''$ARC_PATH/run-import-profile.sh '|| devmod.ie_param('import_profile', FALSE, price_mode) || '''';
  cmd := 'sh $ARC_PATH/run-import-profile.sh 35';
  RAISE NOTICE 'Import prices cmd=[%]', cmd;
+ /***/
  res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
  IF res_exec.err_str <> '' THEN RAISE 'Import prices cmd=%^err_str=[%]', cmd, res_exec.err_str; 
  END IF;
@@ -55,6 +54,27 @@ BEGIN
  res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
  IF res_exec.err_str <> '' THEN RAISE 'fin-info-update-list cmd=%^err_str=[%]', cmd, res_exec.err_str; 
  END IF;
+/***/
+
+/** TODO
+    RAISE NOTICE 'upd_str=%', COALESCE(upd_str, 'upd_str is empty');
+    IF char_length(upd_str)>0 THEN
+       -- delete last comma
+        upd_str := 'UPDATE devmod.device SET ' || TRIM(trailing ', ' from upd_str) || 
+                   ' WHERE dev_id = ' || exp.dev_id || ' AND version_num = ' || exp.exp_version_num || ';';
+        RAISE NOTICE 'UPDATE device=%', upd_str;
+        EXECUTE upd_str;
+    END IF; -- do_update_flag
+**/
+
+/**
+UPDATE devmod.bx_export_log 
+SET exp_csv_status = exp.exp_csv_status
+  , exp_result = good_export_str
+  , exp_finish_dt = clock_timestamp() 
+WHERE exp_batch_id=abatch_id; 
+
+**/
 
   
 END$BODY$
