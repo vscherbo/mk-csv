@@ -14,6 +14,7 @@ $BODY$DECLARE
   upd_str VARCHAR;
   loc_exp_result VARCHAR;
   loc_exp_status INTEGER := 1; -- успешно, если будут ошибки, сбрасываем в 0
+  loc_batch_result VARCHAR := 'Были ошибки в пакетном экспорте';
 BEGIN
   -- check every exp has 
      -- already synced (not NULL device 's fileds: ie_xml_id, ip_prop674, ip_prop 675)
@@ -70,7 +71,12 @@ BEGIN
 /***/
 
 /** TODO **/
-loc_exp_result := quote_nullable(loc_exp_result);
+IF loc_exp_result IS NULL
+THEN
+    loc_exp_result := quote_literal('Завершён экспорт в составе пакета batch_id=' || abatch_id);
+    loc_batch_result := quote_literal('Завершён пакетный экспорт');
+END IF;
+
 FOR exp IN SELECT exp_id, dev_id, exp_mod, exp_version_num FROM devmod.bx_export_log WHERE exp_batch_id=abatch_id
 LOOP
     upd_str := 'ie_xml_id_dt = now(), ip_prop674_dt = now()' ;
@@ -92,7 +98,7 @@ END LOOP;
 /**/
 
 upd_str := 'UPDATE devmod.bx_export_bat SET ' || 
-              'exp_result = ' || loc_exp_result ||
+              'exp_result = ' || loc_batch_result ||
               ', dt_finished = clock_timestamp()' ||
               ', status = ' || loc_exp_status ||
               ' WHERE id = ' || abatch_id || ';' ;
