@@ -10,6 +10,10 @@ $BODY$DECLARE
   site VARCHAR;
   cmd VARCHAR;
   price_mode bit(3) = B'100';
+  exp RECORD;
+  upd_str VARCHAR;
+  loc_exp_result VARCHAR;
+  loc_exp_status INTEGER := 1; -- успешно, если будут ошибки, сбрасываем в 0
 BEGIN
   -- check every exp has 
      -- already synced (not NULL device 's fileds: ie_xml_id, ip_prop674, ip_prop 675)
@@ -44,38 +48,56 @@ BEGIN
  RAISE NOTICE 'Import prices cmd=[%]', cmd;
  /***/
  res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
- IF res_exec.err_str <> '' THEN RAISE 'Import prices cmd=%^err_str=[%]', cmd, res_exec.err_str; 
+ IF res_exec.err_str <> '' THEN 
+    loc_exp_status := 0;
+    loc_exp_result := res_exec.err_str;
+    RAISE 'Import prices cmd=%^err_str=[%]', cmd, res_exec.err_str; 
  END IF;
- IF res_exec.out_str <> '' THEN RAISE 'Import prices cmd=%^out_str=[%]', cmd, res_exec.out_str; 
+ IF res_exec.out_str <> '' THEN 
+    loc_exp_status := 0;
+    loc_exp_result := loc_exp_result || '/' || res_exec.out_str;
+    RAISE 'Import prices cmd=%^out_str=[%]', cmd, res_exec.out_str; 
  END IF;
 
  -- update fin info
  cmd := '/usr/bin/php $ARC_PATH/fin-info-update-list.php -f upload/import-update.csv';
  res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
- IF res_exec.err_str <> '' THEN RAISE 'fin-info-update-list cmd=%^err_str=[%]', cmd, res_exec.err_str; 
+ IF res_exec.err_str <> '' THEN
+    loc_exp_status := 0;
+    loc_exp_result := loc_exp_result || '/' || res_exec.err_str;
+    RAISE 'fin-info-update-list cmd=%^err_str=[%]', cmd, res_exec.err_str; 
  END IF;
 /***/
 
-/** TODO
-    RAISE NOTICE 'upd_str=%', COALESCE(upd_str, 'upd_str is empty');
-    IF char_length(upd_str)>0 THEN
-       -- delete last comma
-        upd_str := 'UPDATE devmod.device SET ' || TRIM(trailing ', ' from upd_str) || 
-                   ' WHERE dev_id = ' || exp.dev_id || ' AND version_num = ' || exp.exp_version_num || ';';
-        RAISE NOTICE 'UPDATE device=%', upd_str;
-        EXECUTE upd_str;
-    END IF; -- do_update_flag
-**/
+/** TODO **/
+loc_exp_result := quote_nullable(loc_exp_result);
+FOR exp IN SELECT exp_id, dev_id, exp_mod, exp_version_num FROM devmod.bx_export_log WHERE exp_batch_id=abatch_id
+LOOP
+    upd_str := 'ie_xml_id_dt = now(), ip_prop674_dt = now()' ;
+    upd_str := 'UPDATE devmod.device SET ' || upd_str || 
+               ' WHERE dev_id = ' || exp.dev_id || ' AND version_num = ' || exp.exp_version_num || ';';
+    RAISE NOTICE 'UPDATE device=%', upd_str;
+    EXECUTE upd_str;
 
-/**
-UPDATE devmod.bx_export_log 
-SET exp_csv_status = exp.exp_csv_status
-  , exp_result = good_export_str
-  , exp_finish_dt = clock_timestamp() 
-WHERE exp_batch_id=abatch_id; 
+    upd_str := 'UPDATE devmod.bx_export_log SET ' || 
+              'exp_csv_status = ' || exp.exp_mod ||
+              ', exp_result = ' || loc_exp_result ||
+              ', exp_finish_dt = clock_timestamp()' ||
+              ', exp_status = ' || loc_exp_status ||
+              ' WHERE exp_id = ' || exp.exp_id || ';' ;
+    RAISE NOTICE 'UPDATE bx_export_log=%', upd_str;
+    EXECUTE upd_str;
+    
+END LOOP;    
+/**/
 
-**/
-
+upd_str := 'UPDATE devmod.bx_export_bat SET ' || 
+              'exp_result = ' || loc_exp_result ||
+              ', dt_finished = clock_timestamp()' ||
+              ', status = ' || loc_exp_status ||
+              ' WHERE id = ' || abatch_id || ';' ;
+RAISE NOTICE 'UPDATE bx_export_bat=%', upd_str;
+EXECUTE upd_str;
   
 END$BODY$
   LANGUAGE plpgsql VOLATILE
