@@ -90,10 +90,9 @@ BEGIN
   RAISE NOTICE ' FIN_EXEC insert=%',  ins_fld || ins_val;
   EXECUTE ins_fld || ins_val ;
 
-
   IF flg_single THEN 
      --out_csv = '/var/lib/pgsql/mk_csv_data/' || ib_name || '.csv';
-     out_csv = homedir() || '/mk_csv_data/' || ib_name || '.csv';
+     out_csv = public.homedir() || '/mk_csv_data/' || ib_name || '.csv';
      -- SELECT * INTO debug_rec FROM csv_tmp;
      -- RAISE NOTICE 'csv_tmp=%', debug_rec ;
      SELECT mk_csv('SELECT * FROM ' ||csv_tmp_name, out_csv) INTO out_res;
