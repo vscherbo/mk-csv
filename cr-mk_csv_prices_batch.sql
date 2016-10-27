@@ -15,6 +15,7 @@ $BODY$DECLARE
   loc_exp_result VARCHAR;
   loc_exp_status INTEGER := 1; -- успешно, если будут ошибки, сбрасываем в 0
   loc_batch_result VARCHAR := 'Были ошибки в пакетном экспорте';
+  csv_filename VARCHAR;
 BEGIN
   -- check every exp has 
      -- already synced (not NULL device 's fileds: ie_xml_id, ip_prop674, ip_prop 675)
@@ -34,12 +35,13 @@ BEGIN
   ALTER TABLE csv_ib30_tmp DROP COLUMN ic_group0;
 
   -- make csv-file
-  str_res := mk_csv('SELECT * FROM csv_ib30_tmp', '/tmp/ib30-list.csv');
+  csv_filename := public.homedir() || '/mk_csv_data/ib30-list.csv';
+  str_res := mk_csv('SELECT * FROM csv_ib30_tmp', csv_filename);
   if (str_res != '') then RAISE 'mk_csv: str_res=[%]', str_res; END IF;
   DROP TABLE csv_ib30_tmp;
 
   -- copy csv-file to site
-  str_res := public.scp('/tmp/ib30-list.csv', 'uploader', site, 'upload/import-update.csv');
+  str_res := public.scp(csv_filename, 'uploader', site, 'upload/import-update.csv');
   IF (str_res != 'OK') then RAISE 'scp: str_res=[%]', str_res; END IF;
   
 
@@ -95,7 +97,6 @@ LOOP
     EXECUTE upd_str;
     
 END LOOP;    
-/**/
 
 upd_str := 'UPDATE devmod.bx_export_bat SET ' || 
               'exp_result = ' || loc_batch_result ||
@@ -104,6 +105,7 @@ upd_str := 'UPDATE devmod.bx_export_bat SET ' ||
               ' WHERE id = ' || abatch_id || ';' ;
 RAISE NOTICE 'UPDATE bx_export_bat=%', upd_str;
 EXECUTE upd_str;
+/**/
   
 END$BODY$
   LANGUAGE plpgsql VOLATILE
