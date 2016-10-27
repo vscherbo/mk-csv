@@ -42,6 +42,12 @@ BEGIN
   ins_fld := 'INSERT INTO ' ||csv_tmp_name|| ' (';
   ins_val := 'VALUES (';
   SELECT COUNT(DISTINCT bx_fld_name) INTO fld_count FROM  devmod.bx_export_csv c WHERE c.mod_csv=mode_csv AND c.exp_id=aLogID;
+  IF fld_count = 0
+  THEN
+     RAISE NOTICE 'ERROR mk_csv_general COUNT()=0 bx_export_csv для exp_id=%, mode_csv=%', aLogID, mode_csv;
+     RETURN;
+  END IF;
+
   val_count := 0;
   -- не нужно, т.к. используем XML_ID
   --SELECT quote_ident(bx_fld_value) INTO out_model_name FROM  devmod.bx_exp_model_name c WHERE c.mod_csv=mode_csv AND c.exp_id=aLogID;
