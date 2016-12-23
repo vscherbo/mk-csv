@@ -24,7 +24,8 @@ BEGIN
 
   PERFORM devmod.mk_csv_general(exp_id, 'devmod.bx_dict_ib30', price_mode::INTEGER, false) 
           FROM devmod.bx_export_log 
-          WHERE exp_batch_id=abatch_id; 
+          WHERE exp_batch_id=abatch_id
+          AND exp_status = 0; -- только не выгруженные 
 
   SELECT exp_site into site 
          FROM devmod.bx_export_log 
