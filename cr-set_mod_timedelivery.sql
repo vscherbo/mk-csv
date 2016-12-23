@@ -23,8 +23,7 @@ BEGIN
        res_exec.err_str := 'update-single-modification cmd IS NULL';
        RAISE '%', res_exec.err_str ; 
     END IF;
-    --
-     RAISE NOTICE 'update-single-modification cmd=[%]', cmd;
+    -- RAISE NOTICE 'update-single-modification cmd=[%]', cmd;
     res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
     
     IF res_exec.err_str <> ''
