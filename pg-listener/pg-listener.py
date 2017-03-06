@@ -46,6 +46,7 @@ signal.signal(signal.SIGHUP, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
 
+##############################################################################
 def do_mk_csv(notify):
     try:
         logging.debug("try devmod.fn_mk_csv(%s)", notify.payload)
@@ -69,6 +70,7 @@ def do_mk_csv(notify):
             logging.warning("%s _exception_UPDATE bx_export_log=%", parser.prog, str(exc))
     logging.info("Finish fn_mk_csv")
 
+##############################################################################
 def do_set_single(notify):
     logging.debug("     Inside do_set_single")
     (str_modid, time_delivery, chg_id, qnt) = notify.payload.split('^')
@@ -77,7 +79,7 @@ def do_set_single(notify):
         site = 'kipspb.ru'
     else:
         site = 'kipspb-fl.arc.world'
-    logging.info("before call arc_energo.set_mod_timedelivery([%s], [%s], [%s], [%s])", site, str_modid, time_delivery, qnt)
+    logging.info("before call chg_id=[%s] arc_energo.set_mod_timedelivery([%s], [%s], [%s], [%s])", chg_id, site, str_modid, time_delivery, qnt)
     sent_result = site +' updated'
     try:
         curs.callproc('arc_energo.set_mod_timedelivery', [site, str_modid, time_delivery, qnt])
@@ -90,14 +92,19 @@ def do_set_single(notify):
         logging.error("%s _exception_ in arc_energo.set_mod_timedelivery=%s", parser.prog, sent_result)
     finally:
         try:
-            upd_cmd = "UPDATE stock_status_changed SET change_status = " + str(chg_status) + ", sent_result = '" + sent_result + "', dt_sent = '" + str(datetime.now()) + "' WHERE id = " + str(chg_id) +";"
-            logging.debug("upd_cmd=%s", upd_cmd)
-            curs.execute(upd_cmd)
+            # fast and dirty patch
+            if chg_id <> 0:
+                upd_cmd = "UPDATE stock_status_changed SET change_status = " + str(chg_status) + ", sent_result = '" + sent_result + "', dt_sent = '" + str(datetime.now()) + "' WHERE id = " + str(chg_id) +";"
+                logging.debug("upd_cmd=%s", upd_cmd)
+                curs.execute(upd_cmd)
+            else:
+                logging.warning("WARNING: chg_id=0 arc_energo.set_mod_timedelivery")
         except psycopg2.Error, exc:
             logging.error("%s _exception_UPDATE stock_status_changed=%s", parser.prog, str(exc))
 
     logging.info("Finish set_mod_timedelivery")
 
+##############################################################################
 def do_set_expected(notify):
     logging.debug("     Inside do_set_expected")
     (str_modid, str_expected, chg_id) = notify.payload.split('^')
@@ -106,7 +113,7 @@ def do_set_expected(notify):
         site = 'kipspb.ru'
     else:
         site = 'kipspb-fl.arc.world'
-    logging.info("before call arc_energo.set_mod_expected_shipments([%s], [%s], [%s])", site, str_modid, str_expected)
+    logging.info("before call chg_id=[%s] arc_energo.set_mod_expected_shipments([%s], [%s], [%s])", chg_id, site, str_modid, str_expected)
     sent_result = site +' updated'
     try:
         curs.callproc('arc_energo.set_mod_expected_shipments', [site, str_modid, str_expected])
@@ -119,9 +126,13 @@ def do_set_expected(notify):
         logging.error("%s _exception_ in arc_energo.set_mod_expected_shipments=%s", parser.prog, sent_result)
     finally:
         try:
-            upd_cmd = "UPDATE expected_shipments SET status = " + str(chg_status) + ", sent_result = '" + sent_result + "', dt_sent = '" + str(datetime.now()) + "' WHERE id = " + str(chg_id) +";"
-            logging.debug("upd_cmd=%s", upd_cmd)
-            curs.execute(upd_cmd)
+            # fast and dirty patch
+            if chg_id <> 0:
+                upd_cmd = "UPDATE expected_shipments SET status = " + str(chg_status) + ", sent_result = '" + sent_result + "', dt_sent = '" + str(datetime.now()) + "' WHERE id = " + str(chg_id) +";"
+                logging.debug("upd_cmd=%s", upd_cmd)
+                curs.execute(upd_cmd)
+            else:
+                logging.warning("WARNING chg_id=0 arc_energo.set_mod_expected_shipments")
         except psycopg2.Error, exc:
             logging.error("%s _exception_UPDATE expected_shipments=%s", parser.prog, str(exc))
 
