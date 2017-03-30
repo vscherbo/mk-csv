@@ -26,7 +26,9 @@ $BODY$DECLARE
   select_cmd VARCHAR;
   debug_rec RECORD;
 BEGIN
+  RAISE NOTICE 'mk_csv_general: input adict=%', adict::VARCHAR;
   ib_name = REPLACE(adict::VARCHAR, 'devmod.bx_dict_', '');
+  ib_name = REPLACE(adict::VARCHAR, 'bx_dict_', '');
   csv_tmp_name = 'csv_' ||ib_name|| '_tmp' ;
   cr1 := 'CREATE TEMPORARY TABLE IF NOT EXISTS ' ||csv_tmp_name|| ' (';
   FOR col IN EXECUTE format('SELECT dict_name, data_type FROM %s ORDER BY dict_order', adict) LOOP
