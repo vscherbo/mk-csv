@@ -7,6 +7,7 @@ from time import sleep
 import argparse
 
 from sys import exit
+# from sys import exc_info
 import signal
 import select
 import psycopg2
@@ -74,12 +75,20 @@ def do_mk_csv(notify):
 def do_set_single(notify):
     logging.debug("     Inside do_set_single")
     (str_modid, time_delivery, chg_id, qnt) = notify.payload.split('^')
-
+    commit_ts_cmd = 'SELECT pg_xact_commit_timestamp(xmin) FROM stock_status_changed WHERE id={0};'.format(chg_id);
+    try:
+        curs.execute(commit_ts_cmd)
+        commit_ts = curs.fetchone()
+        commit_ts_str = commit_ts[0].strftime('%Y-%m-%d %H:%M:%S.%f')
+    except:
+        commit_ts_str = 'commit_ts error'
+ 
     if ('vm-pg' == args.host) or ('vm-pg.arc.world' == args.host):
         site = 'kipspb.ru'
     else:
         site = 'kipspb-fl.arc.world'
-    logging.info("before call chg_id=[%s] arc_energo.set_mod_timedelivery([%s], [%s], [%s], [%s])", chg_id, site, str_modid, time_delivery, qnt)
+
+    logging.info("commit_ts=[%s] before call arc_energo.set_mod_timedelivery([%s], [%s], [%s], [%s])", commit_ts_str, site, str_modid, time_delivery, qnt)
     sent_result = site +' updated'
     try:
         curs.callproc('arc_energo.set_mod_timedelivery', [site, str_modid, time_delivery, qnt])
@@ -88,6 +97,8 @@ def do_set_single(notify):
     except psycopg2.Error, exc:
         chg_status = 2
         logging.error("ERROR arc_energo.set_mod_timedelivery")
+        # (e_type, e_value, e_traceback) = exc_info()[0]
+        # logging.error("%s _exception_ in arc_energo.set_mod_timedelivery, type=[%s] value=[%s] traceback=[%s]", parser.prog, str(e_type), str(e_value), str(e_traceback))
         sent_result = str(exc).replace("'", "''")
         logging.error("%s _exception_ in arc_energo.set_mod_timedelivery=%s", parser.prog, sent_result)
     finally:
@@ -122,6 +133,8 @@ def do_set_expected(notify):
     except psycopg2.Error, exc:
         chg_status = 9
         logging.error("ERROR arc_energo.set_mod_expected_shipments")
+        # (e_type, e_value, e_traceback) = exc_info()[0]
+        # logging.error("%s _exception_ in arc_energo.set_mod_expected_shipments, type=[%s] value=[%s] traceback=[%s]", parser.prog, str(e_type), str(e_value), str(e_traceback))
         sent_result = str(exc).replace("'", "''")
         logging.error("%s _exception_ in arc_energo.set_mod_expected_shipments=%s", parser.prog, sent_result)
     finally:
@@ -138,6 +151,7 @@ def do_set_expected(notify):
 
     logging.info("Finish set_mod_expected_shipments")
 
+#############################################################################
 def do_listen(a_pg_timeout):
     sel_res = select.select([conn], [], [], a_pg_timeout)
     if sel_res == ([], [], []):
@@ -145,7 +159,7 @@ def do_listen(a_pg_timeout):
     else:
         conn.poll()
         while conn.notifies:
-            notify = conn.notifies.pop()
+            notify = conn.notifies.pop(0)
             logging.info(" Got NOTIFY: %s %s %s", notify.pid, notify.channel, notify.payload)
             if 'do_export' == notify.channel:
                 do_mk_csv(notify)
