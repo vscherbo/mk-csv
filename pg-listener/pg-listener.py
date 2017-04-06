@@ -7,7 +7,7 @@ from time import sleep
 import argparse
 
 from sys import exit
-# from sys import exc_info
+from sys import exc_info
 import signal
 import select
 import psycopg2
@@ -88,30 +88,53 @@ def do_set_single(notify):
     else:
         site = 'kipspb-fl.arc.world'
 
-    logging.info("commit_ts=[%s] before call arc_energo.set_mod_timedelivery([%s], [%s], [%s], [%s])", commit_ts_str, site, str_modid, time_delivery, qnt)
+    logging.info("commit_ts=[%s] chg_id=%s before call arc_energo.set_mod_timedelivery([%s], [%s], [%s], [%s])", commit_ts_str, chg_id, site, str_modid, time_delivery, qnt)
     sent_result = site +' updated'
+    do_retry = False
+    retry_cnt = 0
     try:
         curs.callproc('arc_energo.set_mod_timedelivery', [site, str_modid, time_delivery, qnt])
         logging.info("arc_energo.set_mod_timedelivery completed")
-        chg_status = 1
-    except psycopg2.Error, exc:
-        chg_status = 2
+    except BaseException, exc:
         logging.error("ERROR arc_energo.set_mod_timedelivery")
-        # (e_type, e_value, e_traceback) = exc_info()[0]
-        # logging.error("%s _exception_ in arc_energo.set_mod_timedelivery, type=[%s] value=[%s] traceback=[%s]", parser.prog, str(e_type), str(e_value), str(e_traceback))
+        (e_type, e_value, e_traceback) = exc_info()
+        logging.error("%s _exception_ in arc_energo.set_mod_timedelivery, type=[%s] value=[%s]", parser.prog, str(e_type), str(e_value))
         sent_result = str(exc).replace("'", "''")
-        logging.error("%s _exception_ in arc_energo.set_mod_timedelivery=%s", parser.prog, sent_result)
+        if str(e_value).find('client.') > 0:  # exec_paramiko exception
+            logging.debug("There was exec_paramiko exception on chg_id={0}".format(chg_id))
+            # Re-read change_status.
+            # If change_status = chg_id
+            # then it is sign of retry
+            curs.execute('SELECT change_status, retry_cnt FROM stock_status_changed WHERE id=' + chg_id)
+            (chg_status, retry_cnt) = curs.fetchone()
+            logging.debug("change_status={0}, id={1}, retry_cnt{2}".format(chg_status, chg_id, retry_cnt))
+            if int(chg_status) == int(chg_id):  # retry
+                logging.debug("It was retry")
+                if int(retry_cnt) > 2:
+                    chg_status = 2  # stop retry
+                    do_retry = False
+            else:  # do retry
+                logging.debug("chg_status={0}. Do retry".format(chg_status))
+                chg_status = chg_id
+                do_retry = True
+                logging.debug("set chg_status = {0}".format(chg_status))
+            retry_cnt += 1
+    else:
+        chg_status = 1
     finally:
         try:
-            # fast and dirty patch
-            if chg_id <> 0:
-                upd_cmd = "UPDATE stock_status_changed SET change_status = " + str(chg_status) + ", sent_result = '" + sent_result + "', dt_sent = '" + str(datetime.now()) + "' WHERE id = " + str(chg_id) +";"
-                logging.debug("upd_cmd=%s", upd_cmd)
-                curs.execute(upd_cmd)
-            else:
-                logging.warning("WARNING: chg_id=0 arc_energo.set_mod_timedelivery")
+            logging.debug("before construct upd_cmd")
+            upd_cmd = """UPDATE stock_status_changed SET change_status={chg_status}, retry_cnt={retry_cnt}, sent_result='{sent_result}', dt_sent=clock_timestamp() WHERE id={id};""".format(chg_status=chg_status, retry_cnt=retry_cnt, sent_result=sent_result, id=chg_id)
+            # upd_cmd = "UPDATE stock_status_changed SET change_status = " + str(chg_status) + ", sent_result = '" + sent_result + "', dt_sent = '" + str(datetime.now()) + "' WHERE id = " + str(chg_id) +";"
+            logging.debug("upd_cmd=%s", upd_cmd)
+            curs.execute(upd_cmd)
         except psycopg2.Error, exc:
             logging.error("%s _exception_UPDATE stock_status_changed=%s", parser.prog, str(exc))
+        else:
+            if do_retry:
+                logging.debug("arc_energo.resend_to_site_stock_status({0})".format(chg_id))
+                sleep(2)
+                curs.callproc('arc_energo.resend_to_site_stock_status', [chg_id])
 
     logging.info("Finish set_mod_timedelivery")
 
@@ -130,22 +153,17 @@ def do_set_expected(notify):
         curs.callproc('arc_energo.set_mod_expected_shipments', [site, str_modid, str_expected])
         logging.info("arc_energo.set_mod_expected_shipments completed")
         chg_status = 1
-    except psycopg2.Error, exc:
+    except BaseException, exc:
         chg_status = 9
         logging.error("ERROR arc_energo.set_mod_expected_shipments")
-        # (e_type, e_value, e_traceback) = exc_info()[0]
-        # logging.error("%s _exception_ in arc_energo.set_mod_expected_shipments, type=[%s] value=[%s] traceback=[%s]", parser.prog, str(e_type), str(e_value), str(e_traceback))
+        (e_type, e_value, e_traceback) = exc_info()
+        logging.error("%s _exception_ in arc_energo.set_mod_expected_shipments, type=[%s] value=[%s]", parser.prog, str(e_type), str(e_value))
         sent_result = str(exc).replace("'", "''")
-        logging.error("%s _exception_ in arc_energo.set_mod_expected_shipments=%s", parser.prog, sent_result)
     finally:
         try:
-            # fast and dirty patch
-            if chg_id <> 0:
-                upd_cmd = "UPDATE expected_shipments SET status = " + str(chg_status) + ", sent_result = '" + sent_result + "', dt_sent = '" + str(datetime.now()) + "' WHERE id = " + str(chg_id) +";"
-                logging.debug("upd_cmd=%s", upd_cmd)
-                curs.execute(upd_cmd)
-            else:
-                logging.warning("WARNING chg_id=0 arc_energo.set_mod_expected_shipments")
+            upd_cmd = "UPDATE expected_shipments SET status = " + str(chg_status) + ", sent_result = '" + sent_result + "', dt_sent = '" + str(datetime.now()) + "' WHERE id = " + str(chg_id) +";"
+            logging.debug("upd_cmd=%s", upd_cmd)
+            curs.execute(upd_cmd)
         except psycopg2.Error, exc:
             logging.error("%s _exception_UPDATE expected_shipments=%s", parser.prog, str(exc))
 
