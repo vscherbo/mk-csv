@@ -11,39 +11,74 @@ CREATE OR REPLACE FUNCTION public.exec_paramiko(
     OUT err_str character varying)
   RETURNS record AS
 $BODY$
+import logging
+from os.path import expanduser
+home_dir = expanduser("~")
+log_dir = home_dir + '/logs/'
+log_format = '%(levelname)-7s | %(asctime)-15s | %(message)s'
 
- import paramiko
- from datetime import datetime
- from os.path import expanduser
- flog = open("/tmp/shell.log", "a")
- flog.write("Start at " + str(datetime.now()) +'\n')
- rem_cmd = rem_cmd1
+logger = logging.getLogger("exec_paramiko")
+file_handler = logging.FileHandler(log_dir+'exec_paramiko.log')
+formatter = logging.Formatter(log_format)
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+logger.setLevel(logging.WARNING)
 
- if rem_cmd is None:
+# logging.getLogger("paramiko").setLevel(logging.WARNING)
+
+# ptr_ means paramiko.transport
+
+ptr_logger = logging.getLogger("paramiko.transport")
+ptr_logger.setLevel(logging.WARNING)
+file_handler = logging.FileHandler(log_dir+'exec_paramiko.transport.log')
+formatter = logging.Formatter(log_format)
+file_handler.setFormatter(formatter)
+ptr_logger.addHandler(file_handler)
+
+import paramiko
+from datetime import datetime
+
+logger.debug("Start")
+rem_cmd = rem_cmd1
+
+if rem_cmd is None:
     rem_cmd = 'None str'
- flog.write("rem_cmd=" + rem_cmd +'\n')
+logger.info("rem_cmd={0}".format(rem_cmd))
 
- home_dir = expanduser("~")
- # k = paramiko.RSAKey.from_private_key_file("/var/lib/pgsql/.ssh/id_rsa")
- k = paramiko.RSAKey.from_private_key_file(home_dir + "/.ssh/id_rsa")
+k = paramiko.RSAKey.from_private_key_file(home_dir + "/.ssh/id_rsa")
 
- client = paramiko.SSHClient()
- client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
- client.connect(hostname=rem_host, username=rem_user, pkey=k, port=rem_port)
- stdin, stdout, stderr = client.exec_command(rem_cmd)
- out_str = str(stdout.read()).strip()
- err_str = str(stderr.read()).strip()
+client = paramiko.SSHClient()
+client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+try:
+    out_str = ''
+    err_str = ''
+    client.connect(hostname=rem_host, username=rem_user, pkey=k, port=rem_port)
+except BaseException as e:
+    err_str = "client.connect exception={0}".format(e)
+    logger.error(err_str)
+else:
+    try:
+        stdin, stdout, stderr = client.exec_command(rem_cmd)
+    except BaseException as e:
+        err_str = "client.exec_command exception={0}".format(e)
+        logger.error(err_str)
+    else:
+        logger.debug("exec_command completed")
+        out_str = str(stdout.read()).strip()
+        err_str = str(stderr.read()).strip()
+        #logger.debug("out_str={0}".format(out_str))
+        #logger.debug("err_str={0}".format(err_str))
 
- flog.write("out_str=" + out_str +'\n')
- flog.write("err_str=" + err_str +'\n')
+        if '' != out_str:
+            logger.info("out_str={0}".format(out_str))
+        if '' != err_str:
+            out_str += "ERROR: RC=" + err_str
+            logger.warning("output+error={0}".format(out_str))
 
- if '' != err_str:
-     out_str += "ERROR: RC=" + err_str
- flog.write("output+errors=" + out_str +'\n')
- flog.write('================================\n')
- flog.close
- client.close()
- return out_str, err_str
+logger.debug("Finish")
+logger.info('================================')
+client.close()
+return out_str, err_str
 $BODY$
   LANGUAGE plpython2u VOLATILE
   COST 100;
