@@ -18,22 +18,25 @@ log_dir = home_dir + '/logs/'
 log_format = '%(levelname)-7s | %(asctime)-15s | %(message)s'
 
 logger = logging.getLogger("exec_paramiko")
-file_handler = logging.FileHandler(log_dir+'exec_paramiko.log')
-formatter = logging.Formatter(log_format)
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
-logger.setLevel(logging.WARNING)
+if not len(logger.handlers):
+    file_handler = logging.FileHandler(log_dir+'exec_paramiko.log')
+    formatter = logging.Formatter(log_format)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    logger.setLevel(logging.DEBUG)
+    #logger.setLevel(logging.WARNING)
 
 # logging.getLogger("paramiko").setLevel(logging.WARNING)
 
 # ptr_ means paramiko.transport
 
 ptr_logger = logging.getLogger("paramiko.transport")
-ptr_logger.setLevel(logging.WARNING)
-file_handler = logging.FileHandler(log_dir+'exec_paramiko.transport.log')
-formatter = logging.Formatter(log_format)
-file_handler.setFormatter(formatter)
-ptr_logger.addHandler(file_handler)
+if not len(ptr_logger.handlers):
+    file_handler = logging.FileHandler(log_dir+'exec_paramiko.transport.log')
+    formatter = logging.Formatter(log_format)
+    file_handler.setFormatter(formatter)
+    ptr_logger.addHandler(file_handler)
+    ptr_logger.setLevel(logging.WARNING)
 
 import paramiko
 from datetime import datetime
