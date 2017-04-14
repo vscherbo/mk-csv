@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION site()
+CREATE OR REPLACE FUNCTION smtphost()
   RETURNS character varying AS
 $BODY$
 DECLARE
@@ -7,9 +7,9 @@ BEGIN
 loc_production := pg_production();
 
 IF loc_production THEN
-  RETURN 'kipspb.ru';
+  RETURN 'smtp.kipspb.ru';
 ELSE
-  RETURN 'kipspb-fl.arc.world';
+  RETURN 'mail.arc.world';
 END IF;
 
 END;$BODY$
