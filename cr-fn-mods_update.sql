@@ -80,7 +80,8 @@ BEGIN
             FROM devmod.modifications mfrom
             WHERE 
                 mfrom.mod_id=%s AND mfrom.version_num=%s
-                AND m.mod_id=%s AND m.version_num=%s;', quote_literal(mod.mod_id_from), a_ver_from, quote_literal(mod.mod_id_to), a_ver_to);
+                AND m.mod_id=%s AND m.version_num=%s;', quote_literal(mod.mod_id_from), a_ver_from, 
+                quote_literal(COALESCE(mod.mod_id_to, 'deleted')), a_ver_to);
         -- RAISE NOTICE 'N=%, sql_update=%', cnt, sql_update;
         /************************************************/
         EXECUTE sql_update;
