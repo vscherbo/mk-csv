@@ -101,23 +101,23 @@ def do_set_single(notify):
         logging.error("%s _exception_ in arc_energo.set_mod_timedelivery, type=[%s] value=[%s]", parser.prog, str(e_type), str(e_value))
         sent_result = str(exc).replace("'", "''")
         if str(e_value).find('client.') > 0:  # exec_paramiko exception
-            logging.debug("There was exec_paramiko exception on chg_id={0}".format(chg_id))
+            logging.warning("There was exec_paramiko exception on chg_id={0}".format(chg_id))
             # Re-read change_status.
             # If change_status = chg_id
             # then it is sign of retry
             curs.execute('SELECT change_status, retry_cnt FROM stock_status_changed WHERE id=' + chg_id)
             (chg_status, retry_cnt) = curs.fetchone()
-            logging.debug("change_status={0}, id={1}, retry_cnt{2}".format(chg_status, chg_id, retry_cnt))
+            logging.info("change_status={0}, id={1}, retry_cnt{2}".format(chg_status, chg_id, retry_cnt))
             if int(chg_status) == int(chg_id):  # retry
-                logging.debug("It was retry")
+                logging.info("It was retry")
                 if int(retry_cnt) > 2:
                     chg_status = 2  # stop retry
                     do_retry = False
-            else:  # do retry
-                logging.debug("chg_status={0}. Do retry".format(chg_status))
+            else:  # 1st exception
+                logging.info("chg_status={0}. Will retry".format(chg_status))
                 chg_status = chg_id
                 do_retry = True
-                logging.debug("set chg_status = {0}".format(chg_status))
+                logging.info("set chg_status = {0}".format(chg_status))
             retry_cnt += 1
     else:
         chg_status = 1
@@ -126,7 +126,11 @@ def do_set_single(notify):
             logging.debug("before construct upd_cmd")
             upd_cmd = """UPDATE stock_status_changed SET change_status={chg_status}, retry_cnt={retry_cnt}, sent_result='{sent_result}', dt_sent=clock_timestamp() WHERE id={id};""".format(chg_status=chg_status, retry_cnt=retry_cnt, sent_result=sent_result, id=chg_id)
             # upd_cmd = "UPDATE stock_status_changed SET change_status = " + str(chg_status) + ", sent_result = '" + sent_result + "', dt_sent = '" + str(datetime.now()) + "' WHERE id = " + str(chg_id) +";"
-            logging.debug("upd_cmd=%s", upd_cmd)
+            if do_retry:
+                logging.info("upd_cmd=%s", upd_cmd)
+            else:
+                logging.debug("upd_cmd=%s", upd_cmd)
+
             curs.execute(upd_cmd)
         except psycopg2.Error, exc:
             logging.error("%s _exception_UPDATE stock_status_changed=%s", parser.prog, str(exc))
