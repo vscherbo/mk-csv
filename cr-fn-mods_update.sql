@@ -1,13 +1,8 @@
--- Function: devmod.mods_update(integer, integer, integer)
-
--- DROP FUNCTION devmod.mods_update(integer, integer, integer);
-
-CREATE OR REPLACE FUNCTION devmod.mods_update(
-    a_dev_id integer,
-    a_ver_from integer,
-    a_ver_to integer)
-  RETURNS void AS
-$BODY$DECLARE
+CREATE OR REPLACE FUNCTION devmod.mods_update(a_dev_id integer, a_ver_from integer, a_ver_to integer)
+ RETURNS void
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
   sql_mods_from VARCHAR;
   sql_mods_to VARCHAR;
   mod RECORD;
@@ -76,6 +71,7 @@ BEGIN
             dm_valuta = mfrom.dm_valuta,
             dm_kurs = mfrom.dm_kurs,
             dm_koef = mfrom.dm_koef,
+            mod_id_prev = mfrom.mod_id,
             price_base = mfrom.price_base
             FROM devmod.modifications mfrom
             WHERE 
@@ -90,8 +86,4 @@ BEGIN
     END LOOP;
 
     
-END;$BODY$
-  LANGUAGE plpgsql VOLATILE
-  COST 100;
-ALTER FUNCTION devmod.mods_update(integer, integer, integer)
-  OWNER TO arc_energo;
+END;$function$
