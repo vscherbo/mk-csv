@@ -17,17 +17,23 @@ loc_cnt INTEGER;
 
 
 BEGIN
-SELECT time_delivery, qnt, id, dbl_cnt INTO loc_time_delivery, loc_qnt, loc_id, loc_cnt 
-FROM arc_energo.stock_status_changed
-WHERE mod_id=a_mod_id
-    AND change_status=1
-ORDER BY dt_sent DESC LIMIT 1;
+-- есть ли неотправленные
+PERFORM * FROM arc_energo.stock_status_changed WHERE mod_id=a_mod_id AND change_status=0;
+if found then
+    loc_equal := false;
+else 
+    SELECT time_delivery, qnt, id, dbl_cnt INTO loc_time_delivery, loc_qnt, loc_id, loc_cnt
+    FROM arc_energo.stock_status_changed
+    WHERE mod_id=a_mod_id
+        AND change_status=1
+    ORDER BY dt_sent DESC LIMIT 1;
 
-loc_equal:= (FOUND AND (loc_qnt=a_qnt) AND (loc_time_delivery=a_time_delivery));
+    loc_equal = (FOUND AND (loc_qnt=a_qnt) AND (loc_time_delivery=a_time_delivery));
 
-IF loc_equal THEN
-    UPDATE stock_status_changed SET dbl_cnt = (loc_cnt + 1) WHERE id=loc_id; 
-END IF;
+    IF loc_equal THEN
+        UPDATE stock_status_changed SET dbl_cnt = (loc_cnt + 1) WHERE id=loc_id; 
+    END IF;
+end if;
 
 RETURN loc_equal;
 
