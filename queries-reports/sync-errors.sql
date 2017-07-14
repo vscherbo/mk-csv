@@ -11,6 +11,10 @@ WHERE d.version_num = 1 AND NOT b.ie_active;
 \echo
 SELECT * FROM vrf_sync();
 
+\echo 'Расхождения в ожидаемых поставках'
+\echo
+SELECT * FROM vrf_sync_shipments();
+
 \echo 'Расхождения в ценах'
 \echo
 SELECT 
