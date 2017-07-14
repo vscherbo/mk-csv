@@ -157,7 +157,7 @@ def do_compute_set_single(notify):
     logging.debug("chg_id=%s, site=%s", chg_id, site)
     try:
         curs.callproc('ssc_compute', [int(chg_id)])
-        logging.info("arc_energo.ssc_compute completed")
+        logging.debug("arc_energo.ssc_compute completed")
     except BaseException, exc:
         logging.error("ERROR arc_energo.ssc_compute")
         (e_type, e_value, e_traceback) = exc_info()
@@ -165,20 +165,19 @@ def do_compute_set_single(notify):
         logging.error(sent_result)
         try:
             upd_cmd = """UPDATE stock_status_changed SET sent_result='{sent_result}', dt_sent=clock_timestamp() WHERE id={id};""".format(sent_result=sent_result, id=chg_id)
-            logging.debug("upd_cmd=%s", upd_cmd)
-
+            logging.info("upd_cmd=%s", upd_cmd)
             curs.execute(upd_cmd)
         except psycopg2.Error, exc:
-                logging.error("%s _exception_UPDATE stock_status_changed=%s", parser.prog, str(exc))
+            logging.error("%s _exception_UPDATE stock_status_changed=%s", parser.prog, str(exc))
     else:
         (ssc_status, ssc_time_delivery, ssc_qnt, ssc_mod_id) = curs.fetchone()
         if 0 == ssc_status:
-            logging.debug("ssc_status={0}, ssc_time_delivery={1}, ssc_qnt={2}, ssc_mod_id={3}".format(ssc_status, ssc_time_delivery, ssc_qnt, ssc_mod_id))
+            logging.info("ssc_status={0}, ssc_time_delivery={1}, ssc_qnt={2}, ssc_mod_id={3}".format(ssc_status, ssc_time_delivery, ssc_qnt, ssc_mod_id))
             time_delivery = str(ssc_time_delivery)
             qnt = str(ssc_qnt)
             bx_set_mod(chg_id, site, ssc_mod_id, time_delivery, qnt)
         else:
-            logging.info("ssc_status={0}, skip sending".format(ssc_status))
+            logging.info("-> ssc_status={0}, skip sending".format(ssc_status))
 
     logging.info("Finish do_compute_set_single")
 
@@ -189,7 +188,7 @@ def bx_set_mod(arg_chg_id, arg_site, arg_mod_id, arg_time_delivery, arg_qnt):
         retry_cnt = 0
         try:
             curs.callproc('arc_energo.set_mod_timedelivery', [arg_site, arg_mod_id, arg_time_delivery, arg_qnt])
-            logging.info("arc_energo.set_mod_timedelivery completed")
+            logging.debug("arc_energo.set_mod_timedelivery completed")
         except BaseException, exc:
             (e_type, e_value, e_traceback) = exc_info()
             logging.error("%s _exception_ in arc_energo.set_mod_timedelivery, type=[%s] value=[%s]", parser.prog, str(e_type), str(e_value))
@@ -198,7 +197,7 @@ def bx_set_mod(arg_chg_id, arg_site, arg_mod_id, arg_time_delivery, arg_qnt):
                 # Re-read change_status.
                 curs.execute('SELECT change_status, retry_cnt FROM stock_status_changed WHERE id=' + arg_chg_id)
                 (chg_status, retry_cnt) = curs.fetchone()
-                logging.debug("exec_paramiko exception: change_status={0}, id={1}, retry_cnt{2}".format(chg_status, arg_chg_id, retry_cnt))
+                logging.error("exec_paramiko exception: change_status={0}, id={1}, retry_cnt{2}".format(chg_status, arg_chg_id, retry_cnt))
                 # If change_status = chg_id then it is sign of retry
                 if int(chg_status) == int(arg_chg_id):  # retry
                     logging.debug("It was retry")
@@ -229,7 +228,7 @@ def bx_set_mod(arg_chg_id, arg_site, arg_mod_id, arg_time_delivery, arg_qnt):
                 logging.error("%s _exception_UPDATE stock_status_changed=%s", parser.prog, str(exc))
             else:
                 if do_retry:
-                    logging.debug("arc_energo.resend_to_site_stock_status({0})".format(arg_chg_id))
+                    logging.info("arc_energo.resend_to_site_stock_status({0})".format(arg_chg_id))
                     sleep(2)
                     curs.callproc('arc_energo.resend_to_site_stock_status', [arg_chg_id])
 
@@ -273,7 +272,7 @@ def do_listen(a_pg_timeout):
         conn.poll()
         while conn.notifies:
             notify = conn.notifies.pop(0)
-            logging.info(" Got NOTIFY: %s %s %s", notify.pid, notify.channel, notify.payload)
+            logging.info("Got NOTIFY: %s %s %s", notify.pid, notify.channel, notify.payload)
             if 'do_export' == notify.channel:
                 do_mk_csv(notify)
             elif 'do_compute_single' == notify.channel:
