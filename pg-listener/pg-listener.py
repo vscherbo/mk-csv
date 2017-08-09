@@ -243,23 +243,53 @@ def do_set_expected(notify):
         site = 'kipspb-fl.arc.world'
     logging.info("before call chg_id=[%s] arc_energo.set_mod_expected_shipments([%s], [%s], [%s])", chg_id, site, str_modid, str_expected)
     sent_result = site +' updated'
+    retry_cnt = 0
+    do_retry = False
     try:
         curs.callproc('arc_energo.set_mod_expected_shipments', [site, str_modid, str_expected])
         logging.info("arc_energo.set_mod_expected_shipments completed")
-        chg_status = 1
     except BaseException, exc:
         chg_status = 9
         logging.error("ERROR arc_energo.set_mod_expected_shipments")
         (e_type, e_value, e_traceback) = exc_info()
         logging.error("%s _exception_ in arc_energo.set_mod_expected_shipments, type=[%s] value=[%s]", parser.prog, str(e_type), str(e_value))
         sent_result = str(exc).replace("'", "''")
+        if str(e_value).find('client.') > 0:  # exec_paramiko exception
+            # Re-read change_status.
+            curs.execute('SELECT status, retry_cnt FROM expected_shipments WHERE id=' + chg_id)
+            (chg_status, retry_cnt) = curs.fetchone()
+            logging.error("exec_paramiko exception: status={0}, id={1}, retry_cnt{2}".format(chg_status, chg_id, retry_cnt))
+            # If chg_status = chg_id then it is sign of retry
+            if int(chg_status) == int(chg_id):  # retry
+                logging.debug("It was retry")
+                if int(retry_cnt) > 3:
+                    chg_status = 2  # stop retry
+                    do_retry = False
+            else:  # 1st exception
+                logging.debug("status={0}. Will retry".format(chg_status))
+                chg_status = chg_id
+                do_retry = True
+                logging.debug("set status = {0}".format(chg_status))
+            retry_cnt += 1
+        else:  # Not exec_paramiko exception
+            chg_status = -1
+    else:
+        chg_status = 1
+
     finally:
         try:
-            upd_cmd = "UPDATE expected_shipments SET status = " + str(chg_status) + ", sent_result = '" + sent_result + "', dt_sent = '" + str(datetime.now()) + "' WHERE id = " + str(chg_id) +";"
-            logging.debug("upd_cmd=%s", upd_cmd)
+            # upd_cmd = "UPDATE expected_shipments SET status = " + str(chg_status) + ", sent_result = '" + sent_result + "', dt_sent = '" + str(datetime.now()) + "' WHERE id = " + str(chg_id) +";"
+            upd_cmd = """UPDATE expected_shipments SET status={chg_status}, retry_cnt={retry_cnt}, sent_result='{sent_result}', dt_sent=clock_timestamp() WHERE id={chg_id};""".format(chg_status=chg_status, retry_cnt=retry_cnt, sent_result=sent_result, chg_id=chg_id)
+
+            logging.info("upd_cmd=%s", upd_cmd) if do_retry else logging.debug("upd_cmd=%s", upd_cmd)
             curs.execute(upd_cmd)
         except psycopg2.Error, exc:
             logging.error("%s _exception_UPDATE expected_shipments=%s", parser.prog, str(exc))
+        else:
+            if do_retry:
+                logging.info("arc_energo.resend_to_site_expected_shipment({0})".format(chg_id))
+                sleep(2)
+                curs.callproc('arc_energo.resend_to_site_expected_shipment', [chg_id])
 
     logging.info("Finish set_mod_expected_shipments")
 
