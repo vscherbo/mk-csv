@@ -26,7 +26,7 @@ if not len(logger.handlers):
     logger.setLevel(logging.DEBUG)
     #logger.setLevel(logging.WARNING)
 
-# logging.getLogger("paramiko").setLevel(logging.WARNING)
+logging.getLogger("exec_paramiko").setLevel(logging.INFO)
 
 # ptr_ means paramiko.transport
 
