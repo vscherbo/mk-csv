@@ -200,15 +200,15 @@ def bx_set_mod(arg_chg_id, arg_site, arg_mod_id, arg_time_delivery, arg_qnt):
                 logging.error("exec_paramiko exception: change_status={0}, id={1}, retry_cnt{2}".format(chg_status, arg_chg_id, retry_cnt))
                 # If change_status = chg_id then it is sign of retry
                 if int(chg_status) == int(arg_chg_id):  # retry
-                    logging.debug("It was retry")
+                    logging.info("It was retry")
                     if int(retry_cnt) > 3:
                         chg_status = 2  # stop retry
                         do_retry = False
                 else:  # 1st exception
-                    logging.debug("chg_status={0}. Will retry".format(chg_status))
+                    logging.info("1st exception chg_status={0}. Will retry".format(chg_status))
                     chg_status = arg_chg_id
                     do_retry = True
-                    logging.debug("set chg_status = {0}".format(chg_status))
+                    logging.info("set chg_status = {0}".format(chg_status))
                 retry_cnt += 1
             else:  # Not exec_paramiko exception
                 chg_status = -1
@@ -219,9 +219,9 @@ def bx_set_mod(arg_chg_id, arg_site, arg_mod_id, arg_time_delivery, arg_qnt):
                 logging.debug("before construct upd_cmd")
                 upd_cmd = """UPDATE stock_status_changed SET change_status={chg_status}, retry_cnt={retry_cnt}, sent_result='{sent_result}', dt_sent=clock_timestamp() WHERE id={id};""".format(chg_status=chg_status, retry_cnt=retry_cnt, sent_result=sent_result, id=arg_chg_id)
                 if do_retry:
-                    logging.info("upd_cmd=%s", upd_cmd)
+                    logging.info("do_retry=True upd_cmd=%s", upd_cmd)
                 else:
-                    logging.debug("upd_cmd=%s", upd_cmd)
+                    logging.debug("do_retry=False upd_cmd=%s", upd_cmd)
 
                 curs.execute(upd_cmd)
             except psycopg2.Error, exc:
