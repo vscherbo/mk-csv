@@ -32,13 +32,13 @@ def exec_paramiko(rem_host, rem_user, rem_cmd, rem_port=22):
             client.connect(hostname=rem_host, username=rem_user, pkey=k, port=rem_port)
         except BaseException as e:
             err_str = "client.connect exception={0}".format(e)
-            logging.exception(err_str)
+            logging.error(err_str, exc_info=True)
         else:
             try:
                 stdin, stdout, stderr = client.exec_command(rem_cmd)
             except BaseException as e:
                 err_str = "client.exec_command exception={0}".format(e)
-                logging.exception(err_str)
+                logging.error(err_str, exc_info=True)
             else:
                 logging.debug("exec_command completed")
                 out_str = str(stdout.read()).strip()
