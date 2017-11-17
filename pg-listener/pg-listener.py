@@ -1,8 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -
+# -*- coding: utf-8 -*-
 
 from __future__ import print_function
-from datetime import datetime
 from time import sleep
 import argparse
 
@@ -14,7 +13,7 @@ import psycopg2
 import psycopg2.extensions
 import logging
 
-#pg_channel = 'do_export'
+
 pg_channels = ('do_export', 'do_compute_single', 'do_single', 'do_expected')
 pg_timeout = 5
 mark_display=3600
@@ -94,6 +93,7 @@ def do_compute_set_single(notify):
             upd_cmd = """UPDATE stock_status_changed SET sent_result='{sent_result}', dt_sent=clock_timestamp() WHERE id={id};""".format(sent_result=sent_result, id=chg_id)
             logging.info("upd_cmd=%s", upd_cmd)
             curs.execute(upd_cmd)
+            conn.commit()
         except psycopg2.Error, exc:
             logging.error("%s _exception_UPDATE stock_status_changed=%s", parser.prog, str(exc))
     else:
@@ -234,8 +234,6 @@ def do_listen(a_pg_timeout):
                 do_mk_csv(notify)
             elif 'do_compute_single' == notify.channel:
                 do_compute_set_single(notify)
-            elif 'do_single' == notify.channel:
-                do_set_single(notify)
             elif 'do_expected' == notify.channel:
                 do_set_expected(notify)
             else:
@@ -251,7 +249,10 @@ DSN = 'dbname=%s host=%s user=%s' % (args.db, args.host, args.user)
 numeric_level = getattr(logging, args.log, None)
 if not isinstance(numeric_level, int):
     raise ValueError('Invalid log level: %s' % numeric_level)
-logging.basicConfig(filename='pg-listener.log', format='%(asctime)s %(levelname)s: %(message)s', level=numeric_level) # INFO)
+
+# log_format = '[%(filename)-20s:%(lineno)4s - %(funcName)25s()] %(levelname)-7s | %(asctime)-15s | %(message)s'
+log_format = '%(asctime)-15s | %(levelname)-7s | %(filename)-20s:%(lineno)4s - %(funcName)25s() | %(message)s'
+logging.basicConfig(filename='pg-listener.log', format=log_format, level=numeric_level) # INFO)
 
 logging.info("Started")
 do_connect = 1
