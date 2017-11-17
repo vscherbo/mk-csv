@@ -1,10 +1,11 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -
+# -*- coding: utf-8 -*-
 
 from __future__ import print_function
 from time import sleep
 import argparse
 
+import os
 from sys import exit
 from sys import exc_info
 import signal
@@ -48,30 +49,6 @@ signal.signal(signal.SIGTERM, signal_handler)
 
 
 ##############################################################################
-def do_mk_csv(notify):
-    try:
-        logging.debug("try devmod.fn_mk_csv(%s)", notify.payload)
-        curs.callproc('devmod.fn_mk_csv', [notify.payload])
-    except psycopg2.Error, exc:
-        logging.warning("%s _exception_fn_mk_csv=%s", parser.prog, str(exc))
-        curs.execute('SELECT exp_creator FROM devmod.bx_export_log\
-                     WHERE exp_id='
-                     + notify.payload)
-        emp_id = curs.fetchone()
-        try:
-            logging.debug("try fn_push_article2user(%s, %s)", emp_id, 'exp_id='+ notify.payload + '/' + str(exc)) 
-            curs.callproc('fn_push_article2user', [emp_id, 'exp_id='+ notify.payload + '/' + str(exc)])
-        except psycopg2.Error, exc:
-            logging.warning("%s _exception_fn_push_article2user=%s", parser.prog, str(exc))
-
-        try:
-            logging.debug("try UPDATE devmod.bx_export_log SET exp_result ... WHERE exp_id=%s", notify.payload)
-            curs.execute("UPDATE devmod.bx_export_log SET exp_result = quote_literal('" + str(exc).replace("'", "''") +  "') WHERE exp_id = " + notify.payload + ";" )
-        except psycopg2.Error, exc:
-            logging.warning("%s _exception_UPDATE bx_export_log=%", parser.prog, str(exc))
-    logging.info("Finish fn_mk_csv")
-
-##############################################################################
 def do_compute_set_single(notify):
     logging.debug("     Inside do_compute_set_single")
     chg_id = notify.payload
@@ -103,7 +80,6 @@ def do_compute_set_single(notify):
             logging.info("ssc_status={0}, ssc_time_delivery={1}, ssc_qnt={2}, ssc_mod_id={3}".format(ssc_status, ssc_time_delivery, ssc_qnt, ssc_mod_id))
             time_delivery = str(ssc_time_delivery)
             qnt = str(ssc_qnt)
-            #bx_set_mod(chg_id, site, ssc_mod_id, time_delivery, qnt)
             bx_update_mod(chg_id, site, ssc_mod_id, time_delivery, qnt)
         else:
             logging.info("-> ssc_status={0}, skip sending".format(ssc_status))
@@ -159,57 +135,6 @@ def bx_update_mod(arg_chg_id, arg_site, arg_mod_id, arg_time_delivery, arg_qnt):
                     curs.callproc('arc_energo.resend_to_site_stock_status', [arg_chg_id])
 
 ##############################################################################
-def bx_set_mod(arg_chg_id, arg_site, arg_mod_id, arg_time_delivery, arg_qnt):
-        sent_result = arg_site +' updated'
-        do_retry = False
-        retry_cnt = 0
-        try:
-            curs.callproc('arc_energo.set_mod_timedelivery', [arg_site, arg_mod_id, arg_time_delivery, arg_qnt])
-            logging.debug("arc_energo.set_mod_timedelivery completed")
-        except BaseException, exc:
-            (e_type, e_value, e_traceback) = exc_info()
-            logging.error("%s _exception_ in arc_energo.set_mod_timedelivery, type=[%s] value=[%s]", parser.prog, str(e_type), str(e_value))
-            sent_result = str(exc).replace("'", "''")
-            if str(e_value).find('client.') > 0:  # exec_paramiko exception
-                # Re-read change_status.
-                curs.execute('SELECT change_status, retry_cnt FROM stock_status_changed WHERE id=' + arg_chg_id)
-                (chg_status, retry_cnt) = curs.fetchone()
-                logging.error("exec_paramiko exception: change_status={0}, id={1}, retry_cnt{2}".format(chg_status, arg_chg_id, retry_cnt))
-                # If change_status = chg_id then it is sign of retry
-                if int(chg_status) == int(arg_chg_id):  # retry
-                    logging.info("It was retry")
-                    if int(retry_cnt) > 3:
-                        chg_status = 2  # stop retry
-                        do_retry = False
-                else:  # 1st exception
-                    logging.info("1st exception chg_status={0}. Will retry".format(chg_status))
-                    chg_status = arg_chg_id
-                    do_retry = True
-                    logging.info("set chg_status = {0}".format(chg_status))
-                retry_cnt += 1
-            else:  # Not exec_paramiko exception
-                chg_status = -1
-        else:
-            chg_status = 1 # set_mod_timedelivery() returns OK
-        finally:
-            try:
-                logging.debug("before construct upd_cmd")
-                upd_cmd = """UPDATE stock_status_changed SET change_status={chg_status}, retry_cnt={retry_cnt}, sent_result='{sent_result}', dt_sent=clock_timestamp() WHERE id={id};""".format(chg_status=chg_status, retry_cnt=retry_cnt, sent_result=sent_result, id=arg_chg_id)
-                if do_retry:
-                    logging.info("do_retry=True upd_cmd=%s", upd_cmd)
-                else:
-                    logging.debug("do_retry=False upd_cmd=%s", upd_cmd)
-
-                curs.execute(upd_cmd)
-            except psycopg2.Error, exc:
-                logging.error("%s _exception_UPDATE stock_status_changed=%s", parser.prog, str(exc))
-            else:
-                if do_retry:
-                    logging.info("arc_energo.resend_to_site_stock_status({0})".format(arg_chg_id))
-                    sleep(2)
-                    curs.callproc('arc_energo.resend_to_site_stock_status', [arg_chg_id])
-
-##############################################################################
 def do_set_expected(notify):
     logging.debug("     Inside do_set_expected")
     (str_modid, str_expected, chg_id) = notify.payload.split('^')
@@ -223,8 +148,7 @@ def do_set_expected(notify):
     retry_cnt = 0
     do_retry = False
     try:
-        curs.callproc('arc_energo.set_mod_expected_shipments', [site, str_modid, str_expected])
-        logging.info("arc_energo.set_mod_expected_shipments completed")
+        update_site.set_mod_expected_shipments(site, str_modid, str_expected)
     except BaseException, exc:
         chg_status = 9
         logging.error("ERROR arc_energo.set_mod_expected_shipments")
@@ -302,7 +226,8 @@ if not isinstance(numeric_level, int):
 
 # log_format = '[%(filename)-20s:%(lineno)4s - %(funcName)25s()] %(levelname)-7s | %(asctime)-15s | %(message)s'
 log_format = '%(asctime)-15s | %(levelname)-7s | %(filename)-20s:%(lineno)4s - %(funcName)25s() | %(message)s'
-logging.basicConfig(filename='pg-listener.log', format=log_format, level=numeric_level) # INFO)
+(prg_name, prg_ext) = os.path.splitext(os.path.basename(__file__))
+logging.basicConfig(filename=prg_name+'.log', format=log_format, level=numeric_level) # INFO)
 
 logging.info("Started")
 do_connect = 1
