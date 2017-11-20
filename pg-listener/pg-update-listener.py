@@ -194,6 +194,9 @@ def do_set_expected(notify):
 
     logging.info("Finish set_mod_expected_shipments")
 
+def do_mk_csv(notify):
+    pass
+
 #############################################################################
 def do_listen(a_pg_timeout):
     sel_res = select.select([conn], [], [], a_pg_timeout)
@@ -203,6 +206,7 @@ def do_listen(a_pg_timeout):
         conn.poll()
         while conn.notifies:
             notify = conn.notifies.pop(0)
+            logging.info("=========================================")
             logging.info("Got NOTIFY: %s %s %s", notify.pid, notify.channel, notify.payload)
             if 'do_export' == notify.channel:
                 do_mk_csv(notify)
@@ -225,7 +229,7 @@ if not isinstance(numeric_level, int):
     raise ValueError('Invalid log level: %s' % numeric_level)
 
 # log_format = '[%(filename)-20s:%(lineno)4s - %(funcName)25s()] %(levelname)-7s | %(asctime)-15s | %(message)s'
-log_format = '%(asctime)-15s | %(levelname)-7s | %(filename)-20s:%(lineno)4s - %(funcName)25s() | %(message)s'
+log_format = '%(asctime)-15s | %(levelname)-7s | %(filename)-25s:%(lineno)4s - %(funcName)25s() | %(message)s'
 (prg_name, prg_ext) = os.path.splitext(os.path.basename(__file__))
 logging.basicConfig(filename=prg_name+'.log', format=log_format, level=numeric_level) # INFO)
 

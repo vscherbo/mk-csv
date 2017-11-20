@@ -12,13 +12,13 @@ def do_update_site(site, cmd):
     logging.getLogger(__name__).addHandler(logging.NullHandler())
     whoami = inspect.stack()[0][3]
 
-    ret_str = '{0}: cmd is {1}'.format(whoami, cmd if cmd is not None else 'None')
+    ret_str = '{0}: cmd=[{1}]'.format(whoami, cmd if cmd is not None else 'None')
     logging.info(ret_str)
 
     (out_str, err_str) = exec_paramiko.exec_paramiko(site, 'uploader', cmd)
 
     if err_str != '':
-        logging.error('{0} cmd={1}, err_str={2}'.format(whoami, cmd, err_str))
+        logging.error('{0} err_str={2}'.format(whoami, err_str))
         ret_str = err_str
     else:
         ret_str = out_str

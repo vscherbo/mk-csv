@@ -19,7 +19,8 @@ def exec_paramiko(rem_host, rem_user, rem_cmd, rem_port=22):
         logging.warning(err_str)
         out_str = ""
     else:
-        logging.info("rem_cmd={0}".format(rem_cmd))
+        pass
+        # logging.info("rem_cmd={0}".format(rem_cmd))
 
         home_dir = expanduser("~")
         k = paramiko.RSAKey.from_private_key_file(home_dir + "/.ssh/id_rsa")
@@ -52,8 +53,7 @@ def exec_paramiko(rem_host, rem_user, rem_cmd, rem_port=22):
                     out_str += "ERROR: RC=" + err_str
                     logging.warning("output+error={0}".format(out_str))
 
-        logging.debug("Finish")
-        logging.info('================================')
+        logging.debug("completed")
         client.close()
 
 
