@@ -15,40 +15,18 @@ def do_update_site(site, cmd):
     ret_str = '{0}: cmd=[{1}]'.format(whoami, cmd if cmd is not None else 'None')
     logging.info(ret_str)
 
-    (out_str, err_str) = exec_paramiko.exec_paramiko(site, 'uploader', cmd)
-
-    if err_str != '':
-        logging.error('{0} err_str={2}'.format(whoami, err_str))
-        ret_str = err_str
-    else:
+    try:
+        (out_str, err_str) = exec_paramiko.exec_paramiko(site, 'uploader', cmd) # , port=22)
+    except BaseException, exc:
+        ret_str = str(exc)
+        logging.error('exec_paramiko', exc_info=True)
+        raise
+    else:        
         ret_str = out_str
         logging.info('completed');
 
     return ret_str
 
-"""
-def set_mod_timedelivery(site, mod_code, mod_timedelivery, mod_qnt = ''):
-    cmd = "php $ARC_PATH/update-single-modification.php -m{0} -t'{1}' -q'{2}'".format(mod_code, mod_timedelivery, mod_qnt)
-
-    logging.getLogger(__name__).addHandler(logging.NullHandler())
-
-    if cmd is None:
-        ret_str = 'update-single-modification cmd is None'
-        logging.error(ret_str)
-    else:
-        logging.info('update-single-modification cmd={0}'.format(cmd));
-
-        (out_str, err_str) = exec_paramiko.exec_paramiko(site, 'uploader', cmd)
-        
-        if err_str != '':
-            logging.error('update-single-modification cmd={0}, err_str={1}'.format(cmd, err_str)) 
-            ret_str = err_str
-        else:
-            ret_str = out_str
-            logging.info('completed');
-    
-    return ret_str
-"""
 
 def set_mod_timedelivery(site, mod_code, mod_timedelivery, mod_qnt = ''):
     cmd = "php $ARC_PATH/update-single-modification.php -m{0} -t'{1}' -q'{2}'".format(mod_code, mod_timedelivery, mod_qnt)
