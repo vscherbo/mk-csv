@@ -5,7 +5,7 @@ import logging
 from os.path import expanduser
 import paramiko
 
-def exec_paramiko(rem_host, rem_user, rem_cmd, rem_port=22):
+def exec_paramiko(host, user, cmd, port=22):
     """
     OUT out_str character varying,
     OUT err_str character varying)
@@ -14,13 +14,13 @@ def exec_paramiko(rem_host, rem_user, rem_cmd, rem_port=22):
 
     logging.debug("Start")
 
-    if rem_cmd is None:
-        err_str = "rem_cmd is None. Skip"
+    if cmd is None:
+        err_str = "cmd is None. Skip"
         logging.warning(err_str)
         out_str = ""
     else:
         pass
-        # logging.info("rem_cmd={0}".format(rem_cmd))
+        # logging.info("cmd={0}".format(cmd))
 
         home_dir = expanduser("~")
         k = paramiko.RSAKey.from_private_key_file(home_dir + "/.ssh/id_rsa")
@@ -30,16 +30,18 @@ def exec_paramiko(rem_host, rem_user, rem_cmd, rem_port=22):
         try:
             out_str = ''
             err_str = ''
-            client.connect(hostname=rem_host, username=rem_user, pkey=k, port=rem_port)
+            client.connect(hostname=host, username=user, pkey=k, port=port)
         except BaseException as e:
             err_str = "client.connect exception={0}".format(e)
-            logging.error(err_str, exc_info=True)
+            logging.exception(err_str, exc_info=True)
+            raise
         else:
             try:
-                stdin, stdout, stderr = client.exec_command(rem_cmd)
+                stdin, stdout, stderr = client.exec_command(cmd)
             except BaseException as e:
                 err_str = "client.exec_command exception={0}".format(e)
-                logging.error(err_str, exc_info=True)
+                logging.exception(err_str, exc_info=True)
+                raise
             else:
                 logging.debug("exec_command completed")
                 out_str = str(stdout.read()).strip()
@@ -50,8 +52,9 @@ def exec_paramiko(rem_host, rem_user, rem_cmd, rem_port=22):
                 if '' != out_str:
                     logging.info("out_str={0}".format(out_str))
                 if '' != err_str:
-                    out_str += "ERROR: RC=" + err_str
+                    out_str += "ERROR: " + err_str
                     logging.warning("output+error={0}".format(out_str))
+                    raise Exception(err_str)
 
         logging.debug("completed")
         client.close()
