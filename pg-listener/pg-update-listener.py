@@ -73,7 +73,7 @@ def do_compute_set_single(notify):
             curs.execute(upd_cmd)
             conn.commit()
         except psycopg2.Error, exc:
-            logging.error("%s _exception_UPDATE stock_status_changed=%s", parser.prog, str(exc))
+            logging.error("_exception_UPDATE stock_status_changed=%s", str(exc))
     else:
         (ssc_status, ssc_time_delivery, ssc_qnt, ssc_mod_id) = curs.fetchone()
         if 0 == ssc_status:
@@ -95,7 +95,8 @@ def bx_update_mod(arg_chg_id, arg_site, arg_mod_id, arg_time_delivery, arg_qnt):
             update_site.set_mod_timedelivery(arg_site, arg_mod_id, arg_time_delivery, arg_qnt)
         except BaseException, exc:
             (e_type, e_value, e_traceback) = exc_info()
-            logging.error("%s _exception_ in set_mod_timedelivery, type=[%s] value=[%s]", parser.prog, str(e_type), str(e_value))
+            logging.error("_exception_ in set_mod_timedelivery, type=[%s] value=[%s]", str(e_type), str(e_value))
+            # logging.exception("_exception_ in set_mod_timedelivery", exc_info=True)
             sent_result = str(exc).replace("'", "''")
             if str(e_value).find('client.') > 0:  # exec_paramiko exception
                 # Re-read change_status.
@@ -127,7 +128,7 @@ def bx_update_mod(arg_chg_id, arg_site, arg_mod_id, arg_time_delivery, arg_qnt):
                 curs.execute(upd_cmd)
                 conn.commit()
             except psycopg2.Error, exc:
-                logging.error("%s _exception_UPDATE stock_status_changed=%s", parser.prog, str(exc))
+                logging.error("_exception_UPDATE stock_status_changed=%s", str(exc))
             else:
                 if do_retry:
                     logging.info("arc_energo.resend_to_site_stock_status({0})".format(arg_chg_id))
@@ -153,7 +154,7 @@ def do_set_expected(notify):
         chg_status = 9
         logging.error("ERROR arc_energo.set_mod_expected_shipments")
         (e_type, e_value, e_traceback) = exc_info()
-        logging.error("%s _exception_ in arc_energo.set_mod_expected_shipments, type=[%s] value=[%s]", parser.prog, str(e_type), str(e_value))
+        logging.error("_exception_ in arc_energo.set_mod_expected_shipments, type=[%s] value=[%s]", str(e_type), str(e_value))
         sent_result = str(exc).replace("'", "''")
         if str(e_value).find('client.') > 0:  # exec_paramiko exception
             # Re-read change_status.
@@ -185,7 +186,7 @@ def do_set_expected(notify):
             logging.info("upd_cmd=%s", upd_cmd) if do_retry else logging.debug("upd_cmd=%s", upd_cmd)
             curs.execute(upd_cmd)
         except psycopg2.Error, exc:
-            logging.error("%s _exception_UPDATE expected_shipments=%s", parser.prog, str(exc))
+            logging.error("_exception_UPDATE expected_shipments=%s", str(exc))
         else:
             if do_retry:
                 logging.info("arc_energo.resend_to_site_expected_shipment({0})".format(chg_id))
@@ -228,7 +229,6 @@ numeric_level = getattr(logging, args.log, None)
 if not isinstance(numeric_level, int):
     raise ValueError('Invalid log level: %s' % numeric_level)
 
-# log_format = '[%(filename)-20s:%(lineno)4s - %(funcName)25s()] %(levelname)-7s | %(asctime)-15s | %(message)s'
 log_format = '%(asctime)-15s | %(levelname)-7s | %(filename)-25s:%(lineno)4s - %(funcName)25s() | %(message)s'
 (prg_name, prg_ext) = os.path.splitext(os.path.basename(__file__))
 logging.basicConfig(filename=prg_name+'.log', format=log_format, level=numeric_level) # INFO)
