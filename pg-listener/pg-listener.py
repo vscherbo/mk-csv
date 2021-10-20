@@ -14,7 +14,8 @@ import psycopg2.extensions
 import logging
 
 
-pg_channels = ('do_export', 'do_compute_single', 'do_single', 'do_expected')
+# pg_channels = ('do_export', 'do_compute_single', 'do_single', 'do_expected')
+pg_channels = ('do_export', 'filler')
 pg_timeout = 5
 mark_display=3600
 
