@@ -1,10 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2.7
 # -*- coding: utf-8 -
 
-import exec_paramiko #.exec_paramiko as exec_paramiko
 import logging
 import inspect
 import os
+import exec_paramiko #.exec_paramiko as exec_paramiko
 
 
 def do_update_site(site, cmd):
@@ -16,35 +16,40 @@ def do_update_site(site, cmd):
     logging.info(ret_str)
 
     try:
-        (out_str, err_str) = exec_paramiko.exec_paramiko(site, 'uploader', cmd) # , port=22)
+        (out_str, err_str) = exec_paramiko.exec_paramiko(site, 'uploader', cmd)  # PRODUCTION
     except BaseException, exc:
-        ret_str = str(exc)
-        logging.error('exec_paramiko', exc_info=True)
-        raise
-    else:        
+        ret_str = 'do_update_site exec_paramiko exception={0}'.format(exc)
+        logging.exception(ret_str, exc_info=True)
+        #raise
+    else:
         ret_str = out_str
-        logging.info('completed');
+        logging.info('completed')
 
     return ret_str
 
 
-def set_mod_timedelivery(site, mod_code, mod_timedelivery, mod_qnt = ''):
-    cmd = "php $ARC_PATH/update-single-modification.php -m{0} -t'{1}' -q'{2}'".format(mod_code, mod_timedelivery, mod_qnt)
-    return do_update_site(site, cmd)
+def set_mod_timedelivery(site, mod_code, mod_timedelivery, mod_qnt=''):
+    cmd = "php $ARC_PATH/update-single-modification.php -m{0} -t'{1}' -q'{2}'".format(mod_code,\
+            mod_timedelivery, mod_qnt)
+    try:
+        ret_str = do_update_site(site, cmd)
+    except Exception, exc:
+        ret_str = 'set_mod_timedelivery call do_update_site exception={0}'.format(exc)
+    return ret_str
 
 def set_mod_expected_shipments(site, mod_code, mod_expected_shipments):
-    cmd = "php $ARC_PATH/update-expected-shipments.php -m{0} -e'{1}'".format(mod_code, mod_expected_shipments)
+    cmd = "php $ARC_PATH/update-expected-shipments.php -m{0} -e'{1}'".format(mod_code,\
+            mod_expected_shipments)
     return do_update_site(site, cmd)
 
 
 if __name__ == "__main__":
-    log_dir = ''
-    log_format = '[%(filename)-20s:%(lineno)4s - %(funcName)20s()] %(levelname)-7s | %(asctime)-15s | %(message)s'
+    LOG_FORMAT = '[%(filename)-21s:%(lineno)4s - %(funcName)20s()] %(levelname)-7s | %(asctime)-15s | %(message)s'
 
-    (prg_name, prg_ext) = os.path.splitext(os.path.basename(__file__))
-    logging.basicConfig(filename=prg_name+'.log', format=log_format, level=logging.INFO)
+    (PRG_NAME, PRG_EXT) = os.path.splitext(os.path.basename(__file__))
+    logging.basicConfig(filename=PRG_NAME+'.log', format=LOG_FORMAT, level=logging.INFO)
 
     logging.info('Started')
     # set_mod_timedelivery('kipspb-fl.arc.world', '010620000004', 'Со склада', 13)
-    set_mod_expected_shipments('kipspb-fl.arc.world', '010620000004', '2017-12-12:12;')
-    logging.info('Finished') 
+    set_mod_expected_shipments('kipspb-dev.arc.world', '010620000004', '2017-12-12:12;')
+    logging.info('Finished')
