@@ -6,14 +6,8 @@ CREATE OR REPLACE FUNCTION fntr_expected_shipments_notify()
   RETURNS trigger AS
 $BODY$
 DECLARE
-  loc_mod_id VARCHAR;
 BEGIN
-    loc_mod_id := get_mod_id(NEW.ks);
-    IF loc_mod_id IS NOT NULL THEN
-        EXECUTE pg_notify('do_expected', loc_mod_id || '^' || NEW.expected || '^' || NEW.id::VARCHAR);
-    ELSE
-        RAISE NOTICE 'mod_id for KS=% not found', NEW.ks;
-    END IF;
+    EXECUTE pg_notify('do_expected', NEW.mod_id || '^' || NEW.expected || '^' || NEW.id::VARCHAR);
     RETURN NEW;
 END;$BODY$
   LANGUAGE plpgsql VOLATILE
