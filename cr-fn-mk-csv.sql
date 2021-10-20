@@ -39,7 +39,7 @@ BEGIN
         RAISE 'Запрещённая комбинация version_num=% и site=%', exp.exp_version_num, site;
         RETURN;
     END IF;
-    IF exp.exp_version_num <> 0 AND site = 'kipspb-fl.arc.world' THEN
+    IF exp.exp_version_num <> 0 AND site = arc_const('devsite') THEN
         RAISE 'Запрещённая комбинация version_num=% и site=%', exp.exp_version_num, site;
         RETURN;
     END IF;
@@ -72,13 +72,14 @@ BEGIN
         IF (res.out_res != '') THEN RAISE 'Modificators out_res=%', res.out_res; END IF;
         
         cmd := 'scp -q '|| res.out_csv || ' uploader@' || site || ':upload/' || devmod.ie_param('csv_file', flag_mods_new, modificators_mode);
+        RAISE NOTICE 'Modificators scp  cmd=%', cmd;
         str_res := public.shell(cmd);
-        if (str_res != '') then RAISE 'Modificators cmd=%^result=[%]', cmd, str_res; END IF;
+        if (str_res != '') then RAISE 'Modificators scp cmd=%^result=[%]', cmd, str_res; END IF;
 
         -- TODO python paramiko.SSHClient()
         cmd := 'ssh uploader@' || site || ' sh ''$ARC_PATH/run-import-profile.sh '|| devmod.ie_param('import_profile', flag_mods_new, modificators_mode) || '''';
         str_res := public.shell(cmd);
-        if (str_res != '') then RAISE 'Modificators cmd=%^result=[%]', cmd, str_res; END IF;
+        if (str_res != '') then RAISE 'Modificators import cmd=%^result=[%]', cmd, str_res; END IF;
 
         -- только для модификаторов новых товаров
         IF flag_mods_new THEN
@@ -86,13 +87,13 @@ BEGIN
             -- str_res := public.shell(cmd);
             cmd := E'php -f $ARC_PATH/get-modificators-ID.php '|| res.out_model_name;
             res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
-            IF res_exec.err_str <> '' THEN RAISE 'Modificators cmd=%^err_str=[%]', cmd, res_exec.err_str; 
+            IF res_exec.err_str <> '' THEN RAISE 'Modificators get-modificators-ID cmd=%^err_str=[%]', cmd, res_exec.err_str; 
             ELSE str_res := res_exec.out_str;
             END IF;
             BEGIN
                 mods_section_id := cast(str_res as integer);
                 exception WHEN OTHERS 
-                    THEN RAISE 'Modificators cmd=%^result=[%]', cmd, str_res; 
+                    THEN RAISE 'Modificators get-modificators-ID cmd=%^result=[%]', cmd, str_res; 
             END;
             upd_str := upd_str || 'ip_prop675 = ' || mods_section_id || ', ';
         ELSE mods_section_id := loc_prop675;
