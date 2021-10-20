@@ -1,11 +1,11 @@
+-- CONNECTION: name=PROD
 \echo 'Синхронизованные приборы со снятым флагом активности на сайте'
 \echo
-SELECT b.ie_xml_id id, 
-b.ip_prop474 Название,
-b.ie_name Модель,
-ip_prop657 Изменен 
-FROM devmod.bx_dev b JOIN devmod.device d ON b.ie_xml_id = d.ie_xml_id 
-WHERE d.version_num = 1 AND NOT b.ie_active;
+-- SELECT b.ie_xml_id id,b.ip_prop474 Название,b.ie_name Модель,ip_prop657 Изменен
+-- FROM devmod.bx_dev b JOIN devmod.device d ON b.ie_xml_id = d.ie_xml_id
+-- WHERE d.version_num = 1 AND NOT b.ie_active;
+
+SELECT * FROM vrf_sync_site_noactive();
 
 \echo 'Расхождения в сроках поставки и количестве'
 \echo
@@ -14,6 +14,10 @@ SELECT * FROM vrf_sync();
 \echo 'Расхождения в ожидаемых поставках'
 \echo
 SELECT * FROM vrf_sync_shipments();
+
+\echo 'ОШИБКА: текущая версия, прошла синхронизацию, не найдена на сайте'
+\echo
+SELECT * FROM vrf_sync_site_failure();
 
 \echo 'Расхождения в ценах'
 \echo
@@ -33,14 +37,14 @@ FROM
 		vwЦены.ОтпускнаяЦена AS "Цена(Цены)", 
 		modifications.mod_price AS "Цена(devmod)",
 		modifications.dev_id
-	FROM arc_energo.Содержание 
-	JOIN arc_energo.vwЦены ON Содержание.КодСодержания = vwЦены.КодСодержания 
-	JOIN devmod.modifications ON Содержание.КодСодержания = modifications.КодСодержания 
-	JOIN devmod.device ON modifications.dev_id = device.dev_id
-	WHERE modifications.version_num=1 AND device.version_num=1 
-	AND Not device.ie_xml_id Is Null) AS t1 
+       FROM arc_energo.Содержание
+       JOIN arc_energo.vwЦены ON Содержание.КодСодержания = vwЦены.КодСодержания
+       JOIN devmod.modifications ON Содержание.КодСодержания = modifications.КодСодержания
+       JOIN devmod.device ON modifications.dev_id = device.dev_id
+	WHERE modifications.version_num=1 AND device.version_num=1
+	AND Not device.ie_xml_id Is Null) AS t1
 LEFT JOIN devmod.bx_price ON t1.modname = bx_price.ie_name
 WHERE NOT (t1."Цена(сод.)" = t1."Цена(Цены)" AND t1."Цена(сод.)" =t1."Цена(devmod)" AND t1."Цена(сод.)" =cv_price)
 AND t1.dev_id Not IN (SELECT d.dev_id
-	FROM devmod.bx_dev b JOIN devmod.device d ON b.ie_xml_id = d.ie_xml_id 
-	WHERE d.version_num = 1 AND NOT b.ie_active);
+       FROM devmod.bx_dev b JOIN devmod.device d ON b.ie_xml_id = d.ie_xml_id
+       WHERE d.version_num = 1 AND NOT b.ie_active);
