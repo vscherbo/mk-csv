@@ -39,7 +39,7 @@ BEGIN
         RAISE 'Запрещённая комбинация version_num=% и site=%', exp.exp_version_num, site;
         RETURN;
     END IF;
-    IF exp.exp_version_num <> 0 AND site = arc_const('devsite') THEN
+    IF exp.exp_version_num > 1 AND site = arc_const('devsite') THEN
         RAISE 'Запрещённая комбинация version_num=% и site=%', exp.exp_version_num, site;
         RETURN;
     END IF;
@@ -120,10 +120,12 @@ BEGIN
         END IF;
         
         -- delete section
+/**/
         cmd := E'php -f $ARC_PATH/del-price-section.php '|| COALESCE(res.out_model_name, '');
         res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
         IF res_exec.err_str <> '' THEN RAISE 'Prices cmd=%^err_str=[%]', cmd, res_exec.err_str; 
         END IF;
+/**/
     ELSE -- existing prices section
         cmd := E'php -f $ARC_PATH/del-prices-before-import.php '|| COALESCE(res.out_xml_id, '');
         res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
