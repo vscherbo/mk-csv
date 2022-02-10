@@ -72,7 +72,8 @@ BEGIN
             dm_kurs = mfrom.dm_kurs,
             dm_koef = mfrom.dm_koef,
             mod_id_prev = mfrom.mod_id,
-            price_base = mfrom.price_base
+            price_base = mfrom.price_base,
+            vendor_art_id = mfrom.vendor_art_id
             FROM devmod.modifications mfrom
             WHERE 
                 mfrom.mod_id=%s AND mfrom.version_num=%s

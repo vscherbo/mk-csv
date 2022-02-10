@@ -8,22 +8,23 @@ import argparse
 import os
 from sys import exit
 from sys import exc_info
+import logging
 import signal
 import select
 import psycopg2
 import psycopg2.extensions
-import logging
 import update_site
 
 # pg_channels = ('do_export', 'do_compute_single', 'do_expected')
 pg_channels = ('do_compute_single', 'do_expected')
 pg_timeout = 5
-mark_display=3600
+mark_display = 3600
 
 parser = argparse.ArgumentParser(description='Pg listener for .')
-parser.add_argument('--host', type=str, help='PG host')
-parser.add_argument('--db', type=str, help='database name')
-parser.add_argument('--user', type=str, help='db user')
+parser.add_argument('--host', type=str, required=True, help='PG host')
+parser.add_argument('--db', type=str, required=True, help='database name')
+parser.add_argument('--user', type=str, required=True, help='db user')
+parser.add_argument('--site', type=str, default="kipspb-dev.arc.world", help='site')
 parser.add_argument('--log', type=str, default="INFO", help='log level')
 args = parser.parse_args()
 # print(parser.prog)
@@ -47,20 +48,26 @@ signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGHUP, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
+def get_site(arg_host, arg_site):
+    if ('vm-pg' == arg_host) or ('vm-pg.arc.world' == arg_host):
+        loc_site = 'kipspb.ru'
+    elif arg_site.endswith('arc.world'):
+        loc_site = arg_site
+    else:
+        loc_site = 'kipspb-dev.arc.world'
+    return loc_site
+
 
 ##############################################################################
 def do_compute_set_single(notify):
     logging.debug("     Inside do_compute_set_single")
     chg_id = notify.payload
- 
-    if ('vm-pg' == args.host) or ('vm-pg.arc.world' == args.host):
-        site = 'kipspb.ru'
-    else:
-        site = 'kipspb-fl.arc.world'
 
+    site = get_site(args.host, args.site)
     logging.debug("chg_id=%s, site=%s", chg_id, site)
     try:
         curs.callproc('ssc_compute', [int(chg_id)])
+        (ssc_status, ssc_time_delivery, ssc_qnt, ssc_mod_id) = curs.fetchone()
         logging.debug("arc_energo.ssc_compute completed")
     except BaseException, exc:
         logging.error("ERROR arc_energo.ssc_compute")
@@ -75,14 +82,21 @@ def do_compute_set_single(notify):
         except psycopg2.Error, exc:
             logging.error("_exception_UPDATE stock_status_changed=%s", str(exc))
     else:
-        (ssc_status, ssc_time_delivery, ssc_qnt, ssc_mod_id) = curs.fetchone()
-        if 0 == ssc_status:
-            logging.info("ssc_status={0}, ssc_time_delivery={1}, ssc_qnt={2}, ssc_mod_id={3}".format(ssc_status, ssc_time_delivery, ssc_qnt, ssc_mod_id))
-            time_delivery = str(ssc_time_delivery)
-            qnt = str(ssc_qnt)
-            bx_update_mod(chg_id, site, ssc_mod_id, time_delivery, qnt)
+        try:
+            upd_cmd = """UPDATE stock_status_changed SET dt_compute=clock_timestamp() WHERE id={id};""".format(id=chg_id)
+            logging.info("upd_cmd=%s", upd_cmd)
+            curs.execute(upd_cmd)
+            conn.commit()
+        except psycopg2.Error, exc:
+            logging.error("_exception_UPDATE stock_status_changed=%s", str(exc))
         else:
-            logging.info("-> ssc_status={0}, skip sending".format(ssc_status))
+            if 0 == ssc_status:
+                logging.info("ssc_status={0}, ssc_time_delivery={1}, ssc_qnt={2}, ssc_mod_id={3}".format(ssc_status, ssc_time_delivery, ssc_qnt, ssc_mod_id))
+                time_delivery = str(ssc_time_delivery)
+                qnt = str(ssc_qnt)
+                bx_update_mod(chg_id, site, ssc_mod_id, time_delivery, qnt)
+            else:
+                logging.info("-> ssc_status={0}, skip sending".format(ssc_status))
 
     logging.info("Finish")
 
@@ -140,10 +154,8 @@ def do_set_expected(notify):
     logging.debug("     Inside do_set_expected")
     (str_modid, str_expected, chg_id) = notify.payload.split('^')
 
-    if ('vm-pg' == args.host) or ('vm-pg.arc.world' == args.host):
-        site = 'kipspb.ru'
-    else:
-        site = 'kipspb-fl.arc.world'
+    site = get_site(args.host, args.site)
+
     logging.info("before call chg_id=[%s] arc_energo.set_mod_expected_shipments([%s], [%s], [%s])", chg_id, site, str_modid, str_expected)
     sent_result = site +' updated'
     retry_cnt = 0
