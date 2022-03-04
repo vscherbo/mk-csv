@@ -67,7 +67,7 @@ def do_compute_set_single(notify):
     logging.debug("chg_id=%s, site=%s", chg_id, site)
     try:
         curs.callproc('ssc_compute', [int(chg_id)])
-        (ssc_status, ssc_time_delivery, ssc_qnt, ssc_mod_id) = curs.fetchone()
+        (ssc_status, ssc_time_delivery, ssc_qnt, ssc_mod_id, ssc_active) = curs.fetchone()
         logging.debug("arc_energo.ssc_compute completed")
     except BaseException, exc:
         logging.error("ERROR arc_energo.ssc_compute")
@@ -83,7 +83,7 @@ def do_compute_set_single(notify):
             logging.error("_exception_UPDATE stock_status_changed=%s", str(exc))
     else:
         try:
-            upd_cmd = """UPDATE stock_status_changed SET dt_compute=clock_timestamp() WHERE id={id};""".format(id=chg_id)
+            upd_cmd = """UPDATE stock_status_changed SET sent_result='ssc_compute completed', dt_sent=clock_timestamp() WHERE id={id};""".format(id=chg_id)
             logging.info("upd_cmd=%s", upd_cmd)
             curs.execute(upd_cmd)
             conn.commit()
@@ -94,60 +94,70 @@ def do_compute_set_single(notify):
                 logging.info("ssc_status={0}, ssc_time_delivery={1}, ssc_qnt={2}, ssc_mod_id={3}".format(ssc_status, ssc_time_delivery, ssc_qnt, ssc_mod_id))
                 time_delivery = str(ssc_time_delivery)
                 qnt = str(ssc_qnt)
-                bx_update_mod(chg_id, site, ssc_mod_id, time_delivery, qnt)
+                bx_update_mod(chg_id, site, ssc_mod_id, time_delivery, qnt, ssc_active)
             else:
                 logging.info("-> ssc_status={0}, skip sending".format(ssc_status))
 
     logging.info("Finish")
 
 ##############################################################################
-def bx_update_mod(arg_chg_id, arg_site, arg_mod_id, arg_time_delivery, arg_qnt):
+def bx_update_mod(arg_chg_id, arg_site, arg_mod_id, arg_time_delivery, arg_qnt, arg_active):
+    sent_result = 'before {} update'.format(arg_site)
+    do_retry = False
+    # Re-read change_status.
+    curs.execute('SELECT change_status, retry_cnt FROM stock_status_changed WHERE id=' + arg_chg_id)
+    (chg_status, retry_cnt) = curs.fetchone()
+    try:
+        update_site.set_mod_timedelivery(arg_site, arg_mod_id, arg_time_delivery, arg_qnt, arg_active)
+    except BaseException, exc:
+        (e_type, e_value, e_traceback) = exc_info()
+        logging.error("_exception_ in set_mod_timedelivery, type=[%s] value=[%s]", str(e_type), str(e_value))
+        # logging.exception("_exception_ in set_mod_timedelivery", exc_info=True)
+        sent_result = str(exc).replace("'", "''")
+        if (str(e_value).find('client.') > 0
+           or str(e_value).find('Error reading SSH protocol banner') > 0
+           or str(e_value).find('Connection reset by peer') > 0):  # exec_paramiko exception
+            # If change_status = chg_id then it is sign of retry
+            #if int(chg_status) == int(arg_chg_id):  # ? does not work
+            logging.warning("exec_paramiko exception: change_status={0}, id={1}, retry_cnt={2}".format(chg_status, arg_chg_id, retry_cnt))
+            chg_status = arg_chg_id
+            do_retry = True
+            if int(retry_cnt) > 0:  # retry
+                logging.info("It was retry")
+                if int(retry_cnt) > 3:
+                    chg_status = 2  # stop retry
+                    do_retry = False
+            else:  # 1st exception
+                logging.info("1st exception chg_status={0}. Will retry".format(chg_status))
+            logging.info("set chg_status = {0}".format(chg_status))
+            retry_cnt += 1
+        else:  # Not exec_paramiko exception
+            chg_status = -1
+            retry_cnt = 0
+    else:
+        chg_status = 1 # set_mod_timedelivery() returns OK
         sent_result = arg_site +' updated'
-        do_retry = False
-        retry_cnt = 0
+    finally:
         try:
-            update_site.set_mod_timedelivery(arg_site, arg_mod_id, arg_time_delivery, arg_qnt)
-        except BaseException, exc:
-            (e_type, e_value, e_traceback) = exc_info()
-            logging.error("_exception_ in set_mod_timedelivery, type=[%s] value=[%s]", str(e_type), str(e_value))
-            # logging.exception("_exception_ in set_mod_timedelivery", exc_info=True)
-            sent_result = str(exc).replace("'", "''")
-            if str(e_value).find('client.') > 0:  # exec_paramiko exception
-                # Re-read change_status.
-                curs.execute('SELECT change_status, retry_cnt FROM stock_status_changed WHERE id=' + arg_chg_id)
-                (chg_status, retry_cnt) = curs.fetchone()
-                logging.error("exec_paramiko exception: change_status={0}, id={1}, retry_cnt{2}".format(chg_status, arg_chg_id, retry_cnt))
-                # If change_status = chg_id then it is sign of retry
-                if int(chg_status) == int(arg_chg_id):  # retry
-                    logging.info("It was retry")
-                    if int(retry_cnt) > 3:
-                        chg_status = 2  # stop retry
-                        do_retry = False
-                else:  # 1st exception
-                    logging.info("1st exception chg_status={0}. Will retry".format(chg_status))
-                    chg_status = arg_chg_id
-                    do_retry = True
-                    logging.info("set chg_status = {0}".format(chg_status))
-                retry_cnt += 1
-            else:  # Not exec_paramiko exception
-                chg_status = -1
-        else:
-            chg_status = 1 # set_mod_timedelivery() returns OK
-        finally:
-            try:
-                logging.debug("before construct upd_cmd")
-                upd_cmd = """UPDATE stock_status_changed SET change_status={chg_status}, retry_cnt={retry_cnt}, sent_result='{sent_result}', dt_sent=clock_timestamp() WHERE id={id};""".format(chg_status=chg_status, retry_cnt=retry_cnt, sent_result=sent_result, id=arg_chg_id)
-                logging.log(logging.WARN if do_retry else logging.INFO, "do_retry={0}, upd_cmd={1}".format(do_retry, upd_cmd))
-
+            logging.debug("before construct upd_cmd")
+            upd_cmd = """UPDATE stock_status_changed SET change_status={chg_status}, retry_cnt={retry_cnt}, sent_result='{sent_result}', dt_sent=clock_timestamp() WHERE id={id};""".format(chg_status=chg_status, retry_cnt=retry_cnt, sent_result=sent_result, id=arg_chg_id)
+            logging.log(logging.WARN if do_retry else logging.INFO, "do_retry={0}, upd_cmd={1}".format(do_retry, upd_cmd))
+            if upd_cmd:
                 curs.execute(upd_cmd)
                 conn.commit()
-            except psycopg2.Error, exc:
-                logging.error("_exception_UPDATE stock_status_changed=%s", str(exc))
+                logging.info("Run upd_cmd")
             else:
-                if do_retry:
-                    logging.info("arc_energo.resend_to_site_stock_status({0})".format(arg_chg_id))
-                    sleep(2)
-                    curs.callproc('arc_energo.resend_to_site_stock_status', [arg_chg_id])
+                logging.error("upd_cmd is None")
+        except psycopg2.Error, exc:
+            logging.error("_exception_UPDATE stock_status_changed=%s", str(exc))
+        except BaseException, exc:
+            logging.error("Unexpected=%s", str(exc))
+            raise
+        else:
+            if do_retry:
+                logging.info("arc_energo.resend_to_site_stock_status({0})".format(arg_chg_id))
+                sleep(2)
+                curs.callproc('arc_energo.resend_to_site_stock_status', [arg_chg_id])
 
 ##############################################################################
 def do_set_expected(notify):
@@ -157,9 +167,11 @@ def do_set_expected(notify):
     site = get_site(args.host, args.site)
 
     logging.info("before call chg_id=[%s] arc_energo.set_mod_expected_shipments([%s], [%s], [%s])", chg_id, site, str_modid, str_expected)
-    sent_result = site +' updated'
-    retry_cnt = 0
+    sent_result = 'before {} update'.format(site)
     do_retry = False
+    # Re-read change_status.
+    curs.execute('SELECT status, retry_cnt FROM expected_shipments WHERE id=' + chg_id)
+    (chg_status, retry_cnt) = curs.fetchone()
     try:
         update_site.set_mod_expected_shipments(site, str_modid, str_expected)
     except BaseException, exc:
@@ -168,42 +180,47 @@ def do_set_expected(notify):
         (e_type, e_value, e_traceback) = exc_info()
         logging.error("_exception_ in arc_energo.set_mod_expected_shipments, type=[%s] value=[%s]", str(e_type), str(e_value))
         sent_result = str(exc).replace("'", "''")
-        if str(e_value).find('client.') > 0:  # exec_paramiko exception
-            # Re-read change_status.
-            curs.execute('SELECT status, retry_cnt FROM expected_shipments WHERE id=' + chg_id)
-            (chg_status, retry_cnt) = curs.fetchone()
-            logging.error("exec_paramiko exception: status={0}, id={1}, retry_cnt{2}".format(chg_status, chg_id, retry_cnt))
-            # If chg_status = chg_id then it is sign of retry
-            if int(chg_status) == int(chg_id):  # retry
-                logging.debug("It was retry")
+        if (str(e_value).find('client.') > 0
+               or str(e_value).find('Connection reset by peer') > 0):  # exec_paramiko exception
+            logging.warning("exec_paramiko exception: status={0}, id={1}, retry_cnt{2}".format(chg_status, chg_id, retry_cnt))
+            chg_status = chg_id
+            do_retry = True
+            if int(retry_cnt) > 0:  # retry
+                logging.info("It was retry")
                 if int(retry_cnt) > 3:
                     chg_status = 2  # stop retry
                     do_retry = False
             else:  # 1st exception
-                logging.debug("status={0}. Will retry".format(chg_status))
-                chg_status = chg_id
-                do_retry = True
-                logging.debug("set status = {0}".format(chg_status))
+                logging.info("1st exception chg_status={0}. Will retry".format(chg_status))
+            logging.info("set chg_status = {0}".format(chg_status))
             retry_cnt += 1
         else:  # Not exec_paramiko exception
             chg_status = -1
+            retry_cnt = 0
     else:
         chg_status = 1
-
+        sent_result = site +' updated'
     finally:
         try:
             # upd_cmd = "UPDATE expected_shipments SET status = " + str(chg_status) + ", sent_result = '" + sent_result + "', dt_sent = '" + str(datetime.now()) + "' WHERE id = " + str(chg_id) +";"
             upd_cmd = """UPDATE expected_shipments SET status={chg_status}, retry_cnt={retry_cnt}, sent_result='{sent_result}', dt_sent=clock_timestamp() WHERE id={chg_id};""".format(chg_status=chg_status, retry_cnt=retry_cnt, sent_result=sent_result, chg_id=chg_id)
+            logging.log(logging.WARN if do_retry else logging.INFO, "do_retry={0}, upd_cmd={1}".format(do_retry, upd_cmd))
+            if upd_cmd:
+                curs.execute(upd_cmd)
+                conn.commit()
+                logging.info("Run upd_cmd")
+            else:
+                logging.error("upd_cmd is None")
 
-            logging.info("upd_cmd=%s", upd_cmd) if do_retry else logging.debug("upd_cmd=%s", upd_cmd)
-            curs.execute(upd_cmd)
+            #logging.info("upd_cmd=%s", upd_cmd) if do_retry else logging.debug("upd_cmd=%s", upd_cmd)
+            #curs.execute(upd_cmd)
         except psycopg2.Error, exc:
             logging.error("_exception_UPDATE expected_shipments=%s", str(exc))
         else:
             if do_retry:
-                logging.info("arc_energo.resend_to_site_expected_shipment({0})".format(chg_id))
-                sleep(2)
-                curs.callproc('arc_energo.resend_to_site_expected_shipment', [chg_id])
+                logging.warning("TODO arc_energo.resend_to_site_expected_shipment({0})".format(chg_id))
+                #sleep(2)
+                #curs.callproc('arc_energo.resend_to_site_expected_shipment', [chg_id])
 
     logging.info("Finish set_mod_expected_shipments")
 
@@ -273,6 +290,7 @@ while 1 == do_connect:
                 mark_counter=0
                 logging.info("Heartbeat mark")
         except BaseException, exc:
+            logging.info("do_listen exception, %s", str(exc.args))
             if 4 == exc.args[0]:  # interrupt
                 # do_while = 0
                 rc = 0
