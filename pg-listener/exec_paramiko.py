@@ -33,14 +33,14 @@ def exec_paramiko(host, user, cmd, timeout=10, port=22):
             client.connect(hostname=host, username=user, pkey=k, timeout=timeout, port=port)
         except BaseException as e:
             err_str = "client.connect exception={0}".format(e)
-            logging.exception(err_str, exc_info=True)
+            #logging.exception(err_str, exc_info=True)
             raise
         else:
             try:
                 stdin, stdout, stderr = client.exec_command(cmd, timeout=timeout)
             except BaseException as e:
                 err_str = "client.exec_command exception={0}".format(e)
-                logging.exception(err_str, exc_info=True)
+                #logging.exception(err_str, exc_info=True)
                 raise
             else:
                 logging.debug("exec_command completed")
