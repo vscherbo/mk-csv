@@ -35,8 +35,7 @@ BEGIN
       cr1 := cr1 || col.dict_name || ' ' || col.data_type || ',';
   END LOOP;
   cr1 := regexp_replace(cr1::text, ',$'::text, ');');
-  --
-  RAISE NOTICE 'cr1=%', cr1;
+  -- RAISE NOTICE 'cr1=%', cr1;
   EXECUTE cr1;
   IF flg_single THEN EXECUTE 'TRUNCATE '||csv_tmp_name|| ';' ;
   END IF;
@@ -64,18 +63,16 @@ BEGIN
   RAISE NOTICE 'mk_csv_general: out_model_name=%', out_model_name;
 
   select_cmd := format('SELECT dict_name,data_type, COALESCE(bx_fld_value, '''') AS bx_fld_value FROM %s JOIN devmod.bx_export_csv c ON bx_fld_name = dict_name WHERE c.mod_csv=%s AND c.exp_id=%s ORDER BY c.csv_id', adict, mode_csv, alogid);
-  RAISE NOTICE 'select_cmd=%', select_cmd;
+  -- RAISE NOTICE 'select_cmd=%', select_cmd;
   FOR val in EXECUTE select_cmd LOOP
 
     IF val_count < fld_count THEN
        val_count := val_count + 1;
     ELSE
-       --
-       RAISE NOTICE ' EXEC val_count=%, fld_count=%',  val_count, fld_count;
+       -- RAISE NOTICE ' EXEC val_count=%, fld_count=%',  val_count, fld_count;
        ins_fld := regexp_replace(ins_fld, ',$', ') ');
        ins_val := regexp_replace(ins_val, ',$', ');');
-       --
-       RAISE NOTICE ' EXEC insert=%',  ins_fld || ins_val;
+       -- RAISE NOTICE ' EXEC insert=%',  ins_fld || ins_val;
        EXECUTE ins_fld || ins_val ;
        ins_fld := 'INSERT INTO ' ||csv_tmp_name|| ' (';
        ins_val := 'VALUES (';
@@ -85,12 +82,10 @@ BEGIN
     ins_fld := ins_fld || val.dict_name || ',' ;
 
     curr_val := quote_literal(val.bx_fld_value);
-    RAISE NOTICE '   ###curr_val=%',  curr_val;
+    -- RAISE NOTICE '   ###curr_val=%',  curr_val;
     ins_val := ins_val || curr_val || ',' ;
-    --
-    RAISE NOTICE '   current ins_fld=%',  ins_fld;
-    --
-    RAISE NOTICE '   current ins_val=%',  ins_val;
+    -- RAISE NOTICE '   current ins_fld=%',  ins_fld;
+    -- RAISE NOTICE '   current ins_val=%',  ins_val;
   END LOOP;
 
   ins_fld := regexp_replace(ins_fld, ',$', ') ');
