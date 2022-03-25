@@ -25,7 +25,7 @@ BEGIN
 
     -- debug1 := 'CREATE TEMPORARY TABLE ' || tmp_name_from || ' ON COMMIT DROP AS ' || sql_mods_from ;
     -- RAISE NOTICE 'tmp_name=%', tmp_name;
-    -- RAISE NOTICE 'sql=%', debug1;
+    -- RAISE NOTICE 'CREATE TEMPORARY TABLE sql=%', debug1;
     EXECUTE 'CREATE TEMPORARY TABLE ' || tmp_name_from || ' ON COMMIT DROP AS ' || sql_mods_from ;
     EXECUTE 'CREATE TEMPORARY TABLE ' || tmp_name_to || ' ON COMMIT DROP AS ' || sql_mods_to ;
 
