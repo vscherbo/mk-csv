@@ -50,7 +50,8 @@ signal.signal(signal.SIGTERM, signal_handler)
 
 def get_site(arg_host, arg_site):
     if ('vm-pg' == arg_host) or ('vm-pg.arc.world' == arg_host):
-        loc_site = 'kipspb.ru'
+        #loc_site = 'kipspb.ru'
+        loc_site = arg_site
     elif arg_site.endswith('arc.world'):
         loc_site = arg_site
     else:
@@ -116,6 +117,7 @@ def bx_update_mod(arg_chg_id, arg_site, arg_mod_id, arg_time_delivery, arg_qnt, 
         sent_result = str(exc).replace("'", "''")
         if (str(e_value).find('client.') > 0
            or str(e_value).find('Error reading SSH protocol banner') > 0
+           or str(e_value).find('Unable to connect') > 0
            or str(e_value).find('timed out') > 0
            or str(e_value).find('Connection reset by peer') > 0):  # exec_paramiko exception
             # If change_status = chg_id then it is sign of retry
@@ -181,8 +183,13 @@ def do_set_expected(notify):
         (e_type, e_value, e_traceback) = exc_info()
         logging.error("_exception_ in arc_energo.set_mod_expected_shipments, type=[%s] value=[%s]", str(e_type), str(e_value))
         sent_result = str(exc).replace("'", "''")
+        #if (str(e_value).find('client.') > 0
+        #       or str(e_value).find('Connection reset by peer') > 0):  # exec_paramiko exception
         if (str(e_value).find('client.') > 0
-               or str(e_value).find('Connection reset by peer') > 0):  # exec_paramiko exception
+           or str(e_value).find('Error reading SSH protocol banner') > 0
+           or str(e_value).find('Unable to connect') > 0
+           or str(e_value).find('timed out') > 0
+           or str(e_value).find('Connection reset by peer') > 0):  # exec_paramiko exception
             logging.warning("exec_paramiko exception: status={0}, id={1}, retry_cnt{2}".format(chg_status, chg_id, retry_cnt))
             chg_status = chg_id
             do_retry = True
@@ -219,9 +226,9 @@ def do_set_expected(notify):
             logging.error("_exception_UPDATE expected_shipments=%s", str(exc))
         else:
             if do_retry:
-                logging.warning("TODO arc_energo.resend_to_site_expected_shipment({0})".format(chg_id))
-                #sleep(2)
-                #curs.callproc('arc_energo.resend_to_site_expected_shipment', [chg_id])
+                logging.info("arc_energo.resend_to_site_expected_shipment({0})".format(chg_id))
+                sleep(2)
+                curs.callproc('arc_energo.resend_to_site_expected_shipment', [chg_id])
 
     logging.info("Finish set_mod_expected_shipments")
 
@@ -272,10 +279,13 @@ while 1 == do_connect:
         conn = psycopg2.connect(DSN)
         conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
         curs = conn.cursor()
+        curs.callproc('arc_const', ('prodsite',))
+        prod_site = curs.fetchone()  # does not used yet
+        logging.info('prod_site=%s', prod_site[0])
         for pg_channel in pg_channels:
             curs.execute("LISTEN " + pg_channel + ";")
             logging.info("Waiting for notifications on channel %s", pg_channel)
-        mark_counter=0
+        mark_counter = 0
         do_while = 1
     except BaseException, exc:
         logging.warning(" Exception on connect=%s. Sleep for %s", str(exc), str(pg_timeout))
