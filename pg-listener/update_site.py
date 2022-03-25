@@ -6,6 +6,12 @@ import inspect
 import os
 import exec_paramiko #.exec_paramiko as exec_paramiko
 
+"""
+DEBUG connection errors
+on site
+firewall-cmd --add-rich-rule='rule family="ipv4" source address="192.168.1.101/32" service name="ssh" reject' --timeout=4
+"""
+
 
 def do_update_site(site, cmd):
 
