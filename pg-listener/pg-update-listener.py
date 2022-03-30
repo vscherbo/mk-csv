@@ -119,6 +119,7 @@ def bx_update_mod(arg_chg_id, arg_site, arg_mod_id, arg_time_delivery, arg_qnt, 
            or str(e_value).find('Error reading SSH protocol banner') > 0
            or str(e_value).find('Unable to connect') > 0
            or str(e_value).find('timed out') > 0
+           or str(e_value).find('503 Service Temporarily Unavailable') > 0
            or str(e_value).find('Connection reset by peer') > 0):  # exec_paramiko exception
             # If change_status = chg_id then it is sign of retry
             #if int(chg_status) == int(arg_chg_id):  # ? does not work
@@ -189,6 +190,7 @@ def do_set_expected(notify):
            or str(e_value).find('Error reading SSH protocol banner') > 0
            or str(e_value).find('Unable to connect') > 0
            or str(e_value).find('timed out') > 0
+           or str(e_value).find('503 Service Temporarily Unavailable') > 0
            or str(e_value).find('Connection reset by peer') > 0):  # exec_paramiko exception
             logging.warning("exec_paramiko exception: status={0}, id={1}, retry_cnt{2}".format(chg_status, chg_id, retry_cnt))
             chg_status = chg_id
