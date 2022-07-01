@@ -87,7 +87,9 @@ BEGIN
             -- str_res := public.shell(cmd);
             cmd := E'php -f $ARC_PATH/get-modificators-ID.php '|| res.out_model_name;
             res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
-            IF res_exec.err_str <> '' THEN RAISE 'Modificators get-modificators-ID cmd=%^err_str=[%]', cmd, res_exec.err_str; 
+            IF res_exec.err_str <> '' THEN
+                RAISE NOTICE 'Modificators get-modificators-ID cmd=%^err_str=[%]', cmd, res_exec.err_str; 
+                RAISE '%', res_exec.err_str; 
             ELSE str_res := res_exec.out_str;
             END IF;
             BEGIN
@@ -115,7 +117,9 @@ BEGIN
     IF flag_prices_new THEN
         cmd := E'php -f $ARC_PATH/get-prices-ID.php '|| COALESCE(res.out_model_name, '');
         res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, cmd);
-        IF res_exec.err_str <> '' THEN RAISE 'get-prices cmd=%^err_str=[%]', cmd, res_exec.err_str; 
+        IF res_exec.err_str <> '' THEN
+            RAISE NOTICE 'get-prices-ID cmd=%^err_str=[%]', cmd, res_exec.err_str; 
+            RAISE '%', res_exec.err_str; 
         ELSE str_res := res_exec.out_str;
         END IF;
         
