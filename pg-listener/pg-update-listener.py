@@ -117,6 +117,7 @@ def bx_update_mod(arg_chg_id, arg_site, arg_mod_id, arg_time_delivery, arg_qnt, 
         sent_result = str(exc).replace("'", "''")
         if (str(e_value).find('client.') > 0
            or str(e_value).find('Error reading SSH protocol banner') > 0
+           or str(e_value).find('Network is unreachable') > 0
            or str(e_value).find('Unable to connect') > 0
            or str(e_value).find('timed out') > 0
            or str(e_value).find('503 Service Temporarily Unavailable') > 0
@@ -188,6 +189,7 @@ def do_set_expected(notify):
         #       or str(e_value).find('Connection reset by peer') > 0):  # exec_paramiko exception
         if (str(e_value).find('client.') > 0
            or str(e_value).find('Error reading SSH protocol banner') > 0
+           or str(e_value).find('Network is unreachable') > 0
            or str(e_value).find('Unable to connect') > 0
            or str(e_value).find('timed out') > 0
            or str(e_value).find('503 Service Temporarily Unavailable') > 0
