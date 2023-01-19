@@ -74,12 +74,18 @@ BEGIN
         cmd := 'scp -q '|| res.out_csv || ' uploader@' || site || ':upload/' || devmod.ie_param('csv_file', flag_mods_new, modificators_mode);
         RAISE NOTICE 'Modificators scp  cmd=%', cmd;
         str_res := public.shell(cmd);
-        if (str_res != '') then RAISE 'Modificators scp cmd=%^result=[%]', cmd, str_res; END IF;
+        if (str_res != '') then 
+            RAISE NOTICE 'Modificators scp cmd=%^result=[%]', cmd, str_res; 
+            RAISE 'Modificators copy: [%]', str_res; 
+        END IF;
 
         -- TODO python paramiko.SSHClient()
         cmd := 'ssh uploader@' || site || ' sh ''$ARC_PATH/run-import-profile.sh '|| devmod.ie_param('import_profile', flag_mods_new, modificators_mode) || '''';
         str_res := public.shell(cmd);
-        if (str_res != '') then RAISE 'Modificators import cmd=%^result=[%]', cmd, str_res; END IF;
+        if (str_res != '') then
+            RAISE NOTICE 'Modificators import cmd=%^result=[%]', cmd, str_res;
+            RAISE 'Modificators import: [%]', str_res;
+        END IF;
 
         -- только для модификаторов новых товаров
         IF flag_mods_new THEN
@@ -139,11 +145,17 @@ BEGIN
 
     cmd := 'scp -q '|| res.out_csv || ' uploader@' || site || ':upload/' || devmod.ie_param('csv_file', flag_prices_new, price_mode);
     str_res := public.shell(cmd);
-    if (str_res != '') then RAISE 'Prices cmd=%^result=[%]', cmd, str_res; END IF;
+    if (str_res != '') then
+        RAISE NOTICE 'Prices cmd=%^result=[%]', cmd, str_res;
+        RAISE 'Prices copy: [%]', str_res;
+    END IF;
 
     cmd := 'ssh uploader@' || site || ' sh ''$ARC_PATH/run-import-profile.sh '|| devmod.ie_param('import_profile', flag_prices_new, price_mode) || '''';
     str_res := public.shell(cmd);
-    if (str_res != '') then RAISE 'Prices cmd=%^result=[%]', cmd, str_res; END IF;
+    if (str_res != '') then
+        RAISE NOTICE 'Prices cmd=%^result=[%]', cmd, str_res; 
+        RAISE 'Prices import: [%]', str_res; 
+    END IF;
 
     -- только для новых товаров
     IF flag_prices_new THEN
@@ -202,12 +214,18 @@ BEGIN
     cmd := '/usr/bin/scp -q '|| res.out_csv || ' uploader@' || site || ':upload/' || devmod.ie_param('csv_file', flag_dev_new, device_mode);
     RAISE NOTICE 'Device upload cmd=[%]', cmd;
     str_res := public.shell(cmd);    
-    if (str_res != '') then RAISE 'Device cmd=%^result=[%]', cmd, str_res; END IF;
+    if (str_res != '') then
+        RAISE NOTICE 'Device cmd=%^result=[%]', cmd, str_res;
+        RAISE 'Device copy: [%]', str_res;
+    END IF;
 
     cmd := '/usr/bin/ssh uploader@' || site || ' sh ''$ARC_PATH/run-import-profile.sh '|| devmod.ie_param('import_profile', flag_dev_new, device_mode) || '''';
     RAISE NOTICE 'Device import cmd=[%]', cmd;
     str_res := public.shell(cmd);
-    if (str_res != '') then RAISE 'Device cmd=%^result=[%]', cmd, str_res; END IF;
+    if (str_res != '') then
+        RAISE NOTICE 'Device cmd=%^result=[%]', cmd, str_res;
+        RAISE 'Device import: [%]', str_res;
+    END IF;
 
     strFinInfoUpdateArgs := ' ';
     IF (mods_section_id IS NOT NULL)
