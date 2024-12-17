@@ -304,14 +304,14 @@ BEGIN
 /**/
         
   -- DEBUG flush memcache
-  /**/
+  /**
   IF 'kipspb.ru' = site THEN
      res_exec := public.exec_paramiko(site, 22, 'uploader'::VARCHAR, '/usr/bin/php $ARC_PATH/test-flush-memcache.php');
      IF res_exec.err_str <> '' THEN RAISE 'flush-memcache cmd=%^err_str=[%]', cmd, res_exec.err_str; 
      ELSE str_res := res_exec.out_str;
      END IF;
   END IF;
-  /**/
+  **/
 
     -- put an Article about finish of export
   good_export_str := 'Завершён экспорт модели ' || res.out_model_name || ' на сайт ' || site || ' (exp_id='||aexp_id|| ')' ;
