@@ -1,9 +1,10 @@
 -- CONNECTION: name=PROD
 \echo 'Синхронизованные приборы со снятым флагом активности на сайте'
 \echo
--- SELECT b.ie_xml_id id,b.ip_prop474 Название,b.ie_name Модель,ip_prop657 Изменен
--- FROM devmod.bx_dev b JOIN devmod.device d ON b.ie_xml_id = d.ie_xml_id
--- WHERE d.version_num = 1 AND NOT b.ie_active;
+
+SELECT b.ie_xml_id id,b.ip_prop474 Название,b.ie_name Модель,ip_prop657 Изменен
+ FROM devmod.bx_dev b JOIN devmod.device d ON b.ie_xml_id = d.ie_xml_id
+ WHERE d.version_num = 1 AND NOT b.ie_active;
 
 SELECT * FROM vrf_sync_site_noactive();
 
@@ -31,21 +32,23 @@ SELECT
 	t1."Цена(devmod)", 
 	bx_price.cv_price "На сайте"
 FROM 
-	(SELECT Содержание.КодСодержания, 
-		modifications.mod_id, 
+	(SELECT ct.КодСодержания, 
+		m.mod_id, 
 		dev_name ||': '|| mod_id AS modname, 
-		Содержание.Цена::NUMERIC AS "Цена(сод.)", 
-		vwЦены.ОтпускнаяЦена::NUMERIC AS "Цена(Цены)", 
-		modifications.mod_price::NUMERIC AS "Цена(devmod)",
-		modifications.dev_id
-       FROM arc_energo.Содержание
-       JOIN arc_energo.vwЦены ON Содержание.КодСодержания = vwЦены.КодСодержания
-       JOIN devmod.modifications ON Содержание.КодСодержания = modifications.КодСодержания
-       JOIN devmod.device ON modifications.dev_id = device.dev_id
-	WHERE modifications.version_num=1 AND device.version_num=1
-	AND Not device.ie_xml_id Is Null) AS t1
+		ct.Цена AS "Цена(сод.)", 
+		vwЦены.ОтпускнаяЦена AS "Цена(Цены)", 
+		m.mod_price::NUMERIC AS "Цена(devmod)",
+		m.dev_id
+       FROM arc_energo.Содержание ct
+       JOIN arc_energo.vwЦены ON ct.КодСодержания = vwЦены.КодСодержания
+       JOIN devmod.modifications m ON ct.КодСодержания = m.КодСодержания
+       JOIN devmod.device d ON m.dev_id = d.dev_id
+       JOIN bx_dev WHERE  
+	WHERE m.version_num=1 AND d.version_num=1
+	AND Not d.ie_xml_id Is Null) AS t1
 LEFT JOIN devmod.bx_price ON t1.modname = bx_price.ie_name
-WHERE NOT (round(t1."Цена(сод.)"::NUMERIC,2) = round(t1."Цена(Цены)"::numeric,2) AND round(t1."Цена(сод.)"::NUMERIC,2) =round(t1."Цена(devmod)"::NUMERIC,2) AND round(t1."Цена(сод.)"::NUMERIC,2) =round(cv_price::numeric,2))
+WHERE NOT (t1."Цена(сод.)" = t1."Цена(Цены)" AND t1."Цена(сод.)" =t1."Цена(devmod)"::NUMERIC AND t1."Цена(сод.)" =cv_price::numeric)
 AND t1.dev_id Not IN (SELECT d.dev_id
        FROM devmod.bx_dev b JOIN devmod.device d ON b.ie_xml_id = d.ie_xml_id
        WHERE d.version_num = 1 AND NOT b.ie_active);
+
